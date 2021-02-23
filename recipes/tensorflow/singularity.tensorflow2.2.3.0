@@ -1,0 +1,56 @@
+BootStrap: docker
+From: nvcr.io/nvidia/tensorflow:20.09-tf2-py3
+
+
+################################################################################
+%labels
+################################################################################
+TF_VERSION 2.3.0
+NV_VERSION 20.09-tf2-py3
+OS_VERSIOn Ubuntu 18.04
+NOTE: NOT for use on Mike2, SMIC and QB2
+################################################################################
+%setup
+################################################################################
+
+
+################################################################################
+%post
+################################################################################
+
+#conda remove cmake
+
+apt-get update
+apt-get install -y vim 
+apt-get clean
+
+# download and isntall NCCL
+cd /opt
+wget http://www.hpc.lsu.edu/training/weekly-materials/Downloads/nccl_2.7.8-1+cuda11.0_x86_64.txz
+tar -xvJf nccl_2.7.8-1+cuda11.0_x86_64.txz
+cd 
+
+# install horovod with NCCL support
+ldconfig /usr/local/cuda-11.0/targets/x86_64-linux/lib/stubs
+HOROVOD_NCCL_HOME=/opt/nccl_2.7.8-1+cuda11.0_x86_64 HOROVOD_GPU_OPERATIONS=NCCL pip install --no-cache-dir horovod
+ldconfig
+
+# create bind points for HPC environment
+mkdir /project /work /usr/lib64
+touch /usr/bin/nvidia-smi
+touch /usr/bin/nvidia-debugdump
+touch /usr/bin/nvidia-persistenced
+touch /usr/bin/nvidia-cuda-mps-control
+touch /usr/bin/nvidia-cuda-mps-server
+
+################################################################################
+%environment
+################################################################################
+export LC_ALL=C
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:/usr/lib64
+
+################################################################################
+
+%runscript
+
+################################################################################
