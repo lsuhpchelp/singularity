@@ -8,7 +8,7 @@ From: nvcr.io/nvidia/pytorch:20.09-py3
 TO_VERSION 1.7.0
 NV_VERSION 20.09-py3
 OS_VERSIOn Ubuntu 18.04
-
+#NOTE: NOT for use on Mike2, SMIC and QB2
 ################################################################################
 %setup
 ################################################################################
