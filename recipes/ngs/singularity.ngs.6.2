@@ -1,0 +1,41 @@
+BootStrap: docker
+From: ubuntu:18.04
+
+################################################################################
+%labels
+################################################################################
+# https://ngsolve.org/downloads
+NGS_VERSION 6.2.2102
+
+################################################################################
+%setup
+################################################################################
+
+################################################################################
+%post
+################################################################################
+
+apt-get update
+apt-get install -y software-properties-common
+
+apt-add-repository universe
+add-apt-repository ppa:ngsolve/ngsolve
+apt-get update
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
+apt-get install -y ngsolve
+apt-get install -y libpython3.6
+apt-get install -y xauth
+
+# create bind points for HPC environment
+mkdir /project /work /var/scratch
+
+################################################################################
+%environment
+################################################################################
+export LC_ALL=C
+
+################################################################################
+%runscript
+################################################################################
+netgen
