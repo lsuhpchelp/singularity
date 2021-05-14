@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  sing-mpi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stevenrbrandt/sing-mpi
+    container_name: sing-mpi
+    volumes:
+      - .:/work
