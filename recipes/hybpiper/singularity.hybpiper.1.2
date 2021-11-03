@@ -1,0 +1,103 @@
+BootStrap: docker
+From: centos:7
+
+################################################################################
+%labels
+################################################################################
+AUTHOR		Le Yan (lyan1@lsu.edu)
+VERSION		1.2 (March 2017)
+PYTHON		2.7.18
+EXONERATE	2.2.0
+BWA		0.7.17
+SAMTOOLS	0.1.19
+SPADES		3.15.1
+BLAST		2.11.0
+PARALLEL	20200522
+
+################################################################################
+%setup
+################################################################################
+
+################################################################################
+%post
+################################################################################
+
+# Install basic packages
+yum install -y which git sudo wget gcc make bzip2 ncurses-devel ncurses-libs zlib zlib-devel
+
+# Install homebrew
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+useradd -m -s /bin/bash -U hybpiper && echo 'hybpiper ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Install Python
+cd /root/
+wget https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh
+bash Miniconda2-latest-Linux-x86_64.sh -b -s -f -p /opt/miniconda2
+export PATH=/opt/miniconda2/bin:$PATH
+conda install -y biopython
+rm Miniconda2-latest-Linux-x86_64.sh
+
+# Install dependencies
+cd /opt
+
+# install exonerate
+wget http://ftp.ebi.ac.uk/pub/software/vertebrategenomics/exonerate/exonerate-2.2.0-x86_64.tar.gz
+tar xfz exonerate-2.2.0-x86_64.tar.gz
+rm exonerate-2.2.0-x86_64.tar.gz
+
+# install bwa
+wget --no-check-certificate https://downloads.sourceforge.net/project/bio-bwa/bwa-0.7.17.tar.bz2
+tar xjf bwa-0.7.17.tar.bz2
+rm bwa-0.7.17.tar.bz2
+cd bwa-0.7.17
+make
+cd /opt
+
+# Install samtools
+wget --no-check-certificate https://downloads.sourceforge.net/project/samtools/samtools/0.1.19/samtools-0.1.19.tar.bz2
+tar xjf samtools-0.1.19.tar.bz2
+rm samtools-0.1.19.tar.bz2
+cd /opt/samtools-0.1.19
+make
+mkdir bin
+cp samtools bcftools/bcftools bin/
+cd /opt
+
+# Install spades
+wget --no-check-certificate https://cab.spbu.ru/files/release3.15.1/SPAdes-3.15.1-Linux.tar.gz
+tar xfz SPAdes-3.15.1-Linux.tar.gz
+rm SPAdes-3.15.1-Linux.tar.gz
+
+# Install blast
+wget --no-check-certificate https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.11.0/ncbi-blast-2.11.0+-x64-linux.tar.gz
+tar xfz ncbi-blast-2.11.0+-x64-linux.tar.gz
+rm ncbi-blast-2.11.0+-x64-linux.tar.gz
+
+# install parallel
+wget --no-check-certificate http://ftp.gnu.org/gnu/parallel/parallel-20200522.tar.bz2
+tar xjf parallel-20200522.tar.bz2
+cd parallel-20200522
+./configure --prefix=/opt/parallel-20200522
+make && make install
+cd /opt
+
+# Install Hybpiper
+git clone https://github.com/mossmatters/HybPiper.git
+
+# Create bind points for HPC environment
+mkdir /project /work 
+
+################################################################################
+%environment
+################################################################################
+export LC_ALL=C
+export PATH=/opt/miniconda2/bin:/opt/exonerate-2.2.0-x86_64/bin:/opt/bwa-0.7.17:/opt/SPAdes-3.15.1-Linux/bin:/opt/parallel-20200522/bin:/opt/ncbi-blast-2.11.0+/bin:/opt/samtools-0.1.19/bin:$PATH
+# Test dependencies
+#echo "CHECKING DEPENDENCIES..."
+#python /opt/HybPiper/reads_first.py --check-depend
+
+################################################################################
+%runscript
+################################################################################
+python /opt/HybPiper/read_first.py
