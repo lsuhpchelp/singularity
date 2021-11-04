@@ -77,10 +77,14 @@ rm ncbi-blast-2.11.0+-x64-linux.tar.gz
 # install parallel
 wget --no-check-certificate http://ftp.gnu.org/gnu/parallel/parallel-20200522.tar.bz2
 tar xjf parallel-20200522.tar.bz2
+rm parallel-20200522.tar.bz2
 cd parallel-20200522
 ./configure --prefix=/opt/parallel-20200522
 make && make install
 cd /opt
+
+# Set the correct permission 
+chmod 755 *
 
 # Install Hybpiper
 git clone https://github.com/mossmatters/HybPiper.git
@@ -100,4 +104,4 @@ export PATH=/opt/miniconda2/bin:/opt/exonerate-2.2.0-x86_64/bin:/opt/bwa-0.7.17:
 ################################################################################
 %runscript
 ################################################################################
-python /opt/HybPiper/read_first.py
+python /opt/HybPiper/reads_first.py
