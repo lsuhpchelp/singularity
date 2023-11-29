@@ -1,0 +1,21 @@
+#!/bin/bash
+#PBS -A hpc_hpcadmin9
+#PBS -l nodes=2:ppn=20
+#PBS -l walltime=00:05:00
+#PBS -q checkpt
+#PBS -j oe
+#PBS -o output.mpirun
+
+module purge
+IMG="/home/admin/singularity/openfoam10-openmpi.4.0.3-pmi2.sif"
+# pre-processing, create mesh
+cd $PBS_O_WORKDIR
+singularity exec -B /work ${IMG} blockMesh
+# create parallel domains
+singularity exec -B /work ${IMG} decomposePar -force
+module load openmpi/4.1.3/gcc-9.3.0
+SECONDS=0
+# call icoFoam with mpirun
+mpirun -hostfile $PBS_NODEFILE -n 4 -npernode 2 singularity exec --pwd $PWD --bind /work ${IMG} icoFoam -parallel
+echo "mpirun took $SECONDS sec."
+
