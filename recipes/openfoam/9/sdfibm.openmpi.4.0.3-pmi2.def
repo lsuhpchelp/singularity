@@ -1,0 +1,49 @@
+Bootstrap: docker
+From: openfoam/openfoam9-paraview56:latest
+
+%files
+    # mpitest.c /opt
+
+%environment
+    export PATH=/opt/openmpi/4.0.3/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/openmpi/4.0.3/lib:$LD_LIBRARY_PATH
+    export FOAM_INST_DIR=/opt
+    . /opt/openfoam9/etc/bashrc
+    export PATH=/opt/sdfibm/build/src:$PATH
+
+%post
+    sed -i.bak '118,118{s/^/##/}' /opt/openfoam9/etc/bashrc
+    sed -i.bak '229,229{s/^/##/}' /opt/openfoam9/etc/bashrc
+    sed -i 's/alias wmUnset/#alias wmUnset/' /opt/openfoam9/etc/config.sh/aliases
+    sed -i '77s/else/#else/' /opt/openfoam9/etc/config.sh/aliases
+    sed -i 's/unalias wmRefresh/#unalias wmRefresh/' /opt/openfoam9/etc/config.sh/aliases
+    #sed -i 's/unset _foamSource _foamEval/#unset _foamSource _foamEval/' /opt/openfoam9/etc/config.sh/functions
+
+    apt update
+    apt install -y git cmake
+    #apt install -y build-essential
+    apt install -y wget hwloc libpmi2-0 libpmi2-0-dev
+    apt clean
+    rm -rf /var/lib/apt/lists/*
+    cd /opt
+    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.3.tar.gz
+    tar zxvf openmpi-4.0.3.tar.gz && rm openmpi-4.0.3.tar.gz
+    cd openmpi-4.0.3
+    ./configure --with-hwloc=internal --prefix=/opt/openmpi/4.0.3 --with-slurm \
+      --with-pmi=/usr \
+      --without-verbs \
+      --with-pmi-libdir=/usr/lib/x86_64-linux-gnu
+    make -j $(nproc)
+    make install
+    export PATH=/opt/openmpi/4.0.3/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/openmpi/4.0.3/lib:$LD_LIBRARY_PATH
+    export FOAM_INST_DIR=/opt
+    . /opt/openfoam9/etc/bashrc
+    cd /opt
+    git clone https://github.com/ChenguangZhang/sdfibm.git
+    cd sdfibm
+    mkdir build
+    cd build
+    cmake ..
+    make
+
