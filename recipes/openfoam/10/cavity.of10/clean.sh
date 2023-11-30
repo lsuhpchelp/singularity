@@ -1,2 +1,2 @@
 #!/bin/bash
-rm -rf output processor*
+rm -rf output.* processor*
