@@ -1,0 +1,11 @@
+Bootstrap: docker
+From: us.gcr.io/broad-dsde-methods/cellbender:0.3.0
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         0.3.0
+Description     CellBender is a software package for eliminating technical artifacts from high-throughput single-cell RNA sequencing (scRNA-seq) data.
