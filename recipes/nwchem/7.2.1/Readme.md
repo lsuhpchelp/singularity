@@ -7,6 +7,6 @@ Reference: https://nwchemgit.github.io/Containers.html
 
 Example script on SuperMike3:
 
-### Use sample.srun.sh to run NWChem in parallel using srun (Recommended)
+- Use sample.srun.sh to run NWChem in parallel using srun (Recommended)
 
-### Use sample.mpirun.sh to run NWChem in parallel using mpirun
+- Use sample.mpirun.sh to run NWChem in parallel using mpirun
