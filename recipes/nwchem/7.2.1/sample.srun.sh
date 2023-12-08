@@ -8,4 +8,5 @@
 
 module purge
 SIMG="/home/admin/singularity/nwchem7.2.1-openmpi.4.1.4rc2.sif"
-srun --mpi=pmi2 -n $SLURM_NPROCS singularity exec --bind /work ${SIMG} nwchem input.nw
+srun --mpi=pmi2 -n $SLURM_NPROCS singularity exec --bind /work,/project ${SIMG} nwchem input.nw
+
