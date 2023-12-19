@@ -1,0 +1,11 @@
+Bootstrap: docker
+From: quay.io/biocontainers/maker:3.01.03--pl5262h8f1cd36_2
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         3.01.03
+Description     MAKER is a portable and easily configurable genome annotation pipeline.
