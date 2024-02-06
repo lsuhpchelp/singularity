@@ -1,0 +1,11 @@
+Bootstrap: docker
+From: quay.io/biocontainers/bwa:0.7.17--h5bf99c6_8
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         0.7.17
+Description     Burrow-Wheeler Aligner for short-read alignment (see minimap2 for long-read alignment).
