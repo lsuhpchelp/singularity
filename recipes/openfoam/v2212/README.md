@@ -1,4 +1,5 @@
 Procedure inspired from below link:
+
 https://ciq.com/blog/integrating-site-specific-mpi-with-an-openfoam-official-apptainer-image-on-slurm-managed-hpc-environments/
 
 #### Step 1. Build two local images, one from OpenFOAM-v2212 dockerhub, one with pmi2 enabled openmpi-4.1.2
@@ -18,7 +19,7 @@ Build sedFoam on top of pmi2-openfoam-v2212.sif, we need to start from a sandbox
 singularity build --sandbox pmi2-sedFoam pmi2-openfoam2212.def
 singularity shell -w pmi2-sedFoam
 ```
-From the singularity shell:
+Then from inside the singularity shell:
 ```
 . /usr/lib/openfoam/openfoam2212/etc/bashrc
 cd /opt
