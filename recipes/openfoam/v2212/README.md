@@ -14,7 +14,7 @@ singularity build pmi2-openfoam-v2212.sif pmi2-openfoam2212.def
 ```
 
 #### Step 3 (Optional). Build third-party solvers based on the pmi2-openfoam-v2212.sif
-Build sedFoam on top of pmi2-openfoam-v2212.sif, we need to start from a sandbox, because sourcing /usr/lib/openfoam/openfoam2212/etc/bashrc will result in an error from singularity, so we workaround this by using the interactive shell
+Build sedFoam on top of pmi2-openfoam-v2212.sif, we need to start from a sandbox, because sourcing /usr/lib/openfoam/openfoam2212/etc/bashrc will result in an error from singularity build command, so we workaround this by using the interactive shell
 ```
 singularity build --sandbox pmi2-sedFoam pmi2-openfoam2212.def
 singularity shell -w pmi2-sedFoam
