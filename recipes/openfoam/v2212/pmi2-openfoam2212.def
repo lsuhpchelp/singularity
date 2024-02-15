@@ -1,0 +1,27 @@
+Bootstrap: localimage
+From: pmi2-openmpi4.1.2.sif
+Stage: mpi
+
+%post
+    # You can just eliminate this post section here
+    # I keep this section to clearly show you there are 2 stages in this def file.
+
+Bootstrap: localimage
+From: of2212.sif
+Stage: runtime
+
+%files from mpi
+    /opt/openmpi/4.1.2 /opt/openmpi/4.1.2
+
+%post
+    apt update
+    apt install -y libpmi2-0
+    apt clean
+    rm -rf /var/lib/apt/lists/*
+
+%post
+    echo 'export MPI_ARCH_PATH=/opt/openmpi/4.1.2' > \
+      $(bash /openfoam/assets/query.sh -show-prefix)/etc/config.sh/prefs.sys-openmpi
+
+%runscript
+    exec /openfoam/run "$@"
