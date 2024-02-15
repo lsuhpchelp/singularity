@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:2.15.0.post1-gpu-jupyter
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         2.15.0
+CUDA_version    12.3
+Description     Tensorflow framework for deep learning, with GPU support, QT support, commonly used Python modules such as jupyter.
+
+################################################################################
+%post
+################################################################################
+apt update
+apt install -y qtbase5-dev qt5-qmake
+pip install pyqt5 \
+            jupyterlab \
+            Cython \
+            dask \
+            nltk \
+            numba \
+            numexpr \
+            pandas \
+            regex \
+            seaborn \
+            scikit-image \
+            scikit-learn \
+            scikit-learn-intelex \
+            scipy \
+            statsmodels \
+            sympy \
+            tqdm 
+
+apt clean
+pip cache purge
