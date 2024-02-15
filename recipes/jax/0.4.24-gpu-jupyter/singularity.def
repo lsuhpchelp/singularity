@@ -1,0 +1,41 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:2.15.0.post1-gpu-jupyter
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         0.4.24
+CUDA_version    12.3
+CUDNN_version   8
+Description     JAX is NumPy on the CPU, GPU, and TPU, with great automatic differentiation for high-performance machine learning research.
+
+################################################################################
+%post
+################################################################################
+apt update
+apt install -y qtbase5-dev qt5-qmake
+pip install pyqt5 \
+            jupyterlab \
+            Cython \
+            dask \
+            nltk \
+            numba \
+            numexpr \
+            pandas \
+            regex \
+            seaborn \
+            scikit-image \
+            scikit-learn \
+            scikit-learn-intelex \
+            scipy \
+            statsmodels \
+            sympy \
+            tqdm 
+pip install -U "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+apt clean
+pip cache purge
+
