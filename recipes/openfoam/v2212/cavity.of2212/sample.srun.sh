@@ -7,8 +7,7 @@
 #SBATCH -o output.slurm
 
 module purge
-#IMG="/home/admin/singularity/openfoam10-openmpi.4.0.3-pmi2.sif"
-IMG="/work/fchen14/user_errs/nazari/pmi2-openfoam2212.sif"
+IMG="/home/admin/singularity/openfoam-v2212-openmpi.4.1.2-pmi2.sif"
 # pre-processing, create mesh
 singularity run -B /work ${IMG} blockMesh
 # create parallel domains
