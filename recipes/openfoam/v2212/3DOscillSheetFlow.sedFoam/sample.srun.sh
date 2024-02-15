@@ -10,12 +10,13 @@ module purge
 IMG="/home/admin/singularity/openfoam-v2212-openmpi.4.1.2-pmi2.sif"
 # pre-processing, create mesh
 singularity run -B /work ${IMG} blockMesh
+cp -r 0_org 0
 # create parallel domains
 singularity run -B /work ${IMG} decomposePar -force
-cp -r 0_org 0
 SECONDS=0
-# call icoFoam using srun
+# call icoFoam using srun, suggested
 srun --overlap -n 128 singularity run --pwd $PWD --bind /work ${IMG} sedFoam_rbgh -parallel
+#below lines uses mpirun
 #module load openmpi
-#srun -n 128 singularity run --pwd $PWD --bind /work ${IMG} sedFoam_rbgh -parallel
+#mpirun -n 128 singularity run --pwd $PWD --bind /work ${IMG} sedFoam_rbgh -parallel
 echo "srun took $SECONDS sec."
