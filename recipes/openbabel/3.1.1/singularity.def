@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         3.1.1
+Description     Open Babel is a chemical toolbox designed to speak the many languages of chemical data. It’s an open, collaborative project allowing anyone to search, convert, analyze, or store data from molecular modeling, chemistry, solid-state materials, biochemistry, or related areas.
+
+################################################################################
+%post
+################################################################################
+
+apt update
+apt install -y openbabel=3.1.1* openbabel-gui=3.1.1*
+apt clean
