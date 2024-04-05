@@ -1,0 +1,22 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         23.10.1
+Description     A DSL for data-driven computational pipelines.
+
+################################################################################
+%post
+################################################################################
+
+apt update
+apt install -y default-jdk curl
+cd /usr/local/bin
+curl -sL https://github.com/nextflow-io/nextflow/releases/download/v23.10.1/nextflow | bash
+chmod +x nextflow
+apt clean
