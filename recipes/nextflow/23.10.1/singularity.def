@@ -11,6 +11,11 @@ Version         23.10.1
 Description     A DSL for data-driven computational pipelines.
 
 ################################################################################
+%environment
+################################################################################
+export  NXF_JAVA_HOME=/usr
+
+################################################################################
 %post
 ################################################################################
 
@@ -18,5 +23,5 @@ apt update
 apt install -y default-jdk curl
 cd /usr/local/bin
 curl -sL https://github.com/nextflow-io/nextflow/releases/download/v23.10.1/nextflow | bash
-chmod +x nextflow
+chmod 755 nextflow
 apt clean
