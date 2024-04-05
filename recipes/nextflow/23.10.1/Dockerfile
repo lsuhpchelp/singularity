@@ -12,5 +12,6 @@ RUN apt update
 RUN apt install -y default-jdk curl
 WORKDIR /usr/local/bin
 RUN curl -sL https://github.com/nextflow-io/nextflow/releases/download/v23.10.1/nextflow | bash
-RUN chmod +x nextflow
+RUN chmod 755 nextflow
 RUN apt clean
+ENV NXF_JAVA_HOME /usr
