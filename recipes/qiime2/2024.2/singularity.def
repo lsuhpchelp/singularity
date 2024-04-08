@@ -1,0 +1,11 @@
+Bootstrap: docker
+From: quay.io/qiime2/amplicon:2024.2
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         2024.2
+Description     QIIME 2 is a powerful, extensible, and decentralized microbiome analysis package with a focus on data and analysis transparency. QIIME 2 enables researchers to start an analysis with raw DNA sequence data and finish with publication-quality figures and statistical results.
