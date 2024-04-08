@@ -1,0 +1,12 @@
+Bootstrap: docker
+From: staphb/samtools:1.19
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         1.19
+Description     Tools (written in C using htslib) for manipulating next-generation sequencing data.
+
