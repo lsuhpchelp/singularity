@@ -7,22 +7,15 @@ LABEL    software="JAX" \
     container="JAX" \ 
     about.summary="JAX is NumPy on the CPU, GPU, and TPU, with great automatic differentiation for high-performance machine learning research." \ 
     about.home="https://github.com/google/jax" \ 
-    software.version="0.4.23"
+    software.version="0.4.26"
 
-# Update apt
+# Install dependencies
 RUN apt update
-RUN apt install -y wget qtbase5-dev qt5-qmake
+RUN apt install -y wget qtbase5-dev qt5-qmake python3-dev pip
+RUN ln -s /usr/bin/python3 /usr/bin/python 
 
-# Install miniconda
-WORKDIR /opt
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-RUN chmod u+x Miniconda3-latest-Linux-x86_64.sh
-RUN ./Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda
-RUN rm Miniconda3-latest-Linux-x86_64.sh
-
-# Install jax
-ENV PATH=/opt/conda/bin:$PATH
-RUN CONDA_OVERRIDE_CUDA=12.3 conda install -y jaxlib=0.4.23=*cuda* jax cuda-nvcc -c conda-forge -c nvidia
+# Install JAX
+RUN pip install -U "jax[cuda12_pip]"==0.4.26 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
 # Install additional packages
 RUN pip install pyqt5 \
@@ -46,4 +39,3 @@ RUN pip install pyqt5 \
 # Clean cache
 RUN apt clean
 RUN pip cache purge
-RUN conda clean -a -y
