@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: tensorflow/tensorflow:2.15.0.post1-gpu-jupyter
+From: tensorflow/tensorflow:2.16.1-gpu-jupyter
 
 
 ################################################################################
@@ -7,7 +7,7 @@ From: tensorflow/tensorflow:2.15.0.post1-gpu-jupyter
 ################################################################################
 
 Maintainer      Jason Li
-Version         2.15.0
+Version         2.16.1
 CUDA_version    12.3
 Description     Tensorflow framework for deep learning, with GPU support, QT support, commonly used Python modules such as jupyter.
 
