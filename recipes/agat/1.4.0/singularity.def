@@ -1,0 +1,11 @@
+Bootstrap: docker
+From: quay.io/biocontainers/agat:1.4.0--pl5321hdfd78af_0
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         1.4.0
+Description     Another Gtf/Gff Analysis Toolkit.
