@@ -1,0 +1,22 @@
+Bootstrap: docker
+From: fangohr/octopus:14.0
+
+%environment
+    export PATH=/opt/openmpi/4.1.2/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/openmpi/4.1.2/lib:$LD_LIBRARY_PATH
+    unset OMP_NUM_THREADS
+
+%post
+    apt update
+    apt install -y build-essential
+    apt install -y wget hwloc libpmi2-0 libpmi2-0-dev
+    apt clean
+    rm -rf /var/lib/apt/lists/*
+
+    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.2.tar.gz
+    tar zxvf openmpi-4.1.2.tar.gz && rm openmpi-4.1.2.tar.gz
+    cd openmpi-4.1.2
+    ./configure --with-hwloc=internal --prefix=/opt/openmpi/4.1.2 --with-slurm \
+      --with-pmi=/usr --with-pmi-libdir=/usr/lib/x86_64-linux-gnu --without-verbs
+    make -j $(nproc)
+    make install
