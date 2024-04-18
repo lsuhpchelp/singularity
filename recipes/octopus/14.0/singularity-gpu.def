@@ -1,0 +1,44 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         14.0
+Description     
+
+
+################################################################################
+%environment
+################################################################################
+export PATH=/opt/openmpi/4.1.2/bin:$PATH
+export LD_LIBRARY_PATH=/opt/openmpi/4.1.2/lib:/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda-12.4/compat/:$LD_LIBRARY_PATH
+
+################################################################################
+%post
+################################################################################
+
+# Set up environment
+VERSION_OCTOPUS=14.0
+BUILD_SYSTEM=autotools
+
+# Obtain installation scripts
+apt update
+apt install -y wget
+
+
+#apt install -y build-essential
+#apt install -y wget hwloc libpmi2-0 libpmi2-0-dev
+#apt clean
+#rm -rf /var/lib/apt/lists/*
+
+#wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.2.tar.gz
+#tar zxvf openmpi-4.1.2.tar.gz && rm openmpi-4.1.2.tar.gz
+#cd openmpi-4.1.2
+#./configure --with-hwloc=internal --prefix=/opt/openmpi/4.1.2 --with-slurm \
+#    --with-pmi=/usr --with-pmi-libdir=/usr/lib/x86_64-linux-gnu --without-verbs
+#make -j $(nproc)
+#make install
