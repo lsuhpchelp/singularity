@@ -119,6 +119,12 @@ else
   echo "octopus-source-clone-date: $date " >> octopus-source-version
 fi
 
+# Force disable GPU by default. -Jason
+# Explanation: GPU is not always advatangeous for current settings, but will be enabled by 
+#    default if Octopus is compiled with CUDA. Forcing it to disable, and only enable when
+#    user explicitly indicated.
+sed -ie "s/'DisableAccel', default/'DisableAccel', .true./" src/basic/accel.F90
+
 
 # Build octopus
 if [ $build_system == "cmake" ]; then
@@ -169,4 +175,3 @@ elif [ $build_system == "autotools" ]; then
   make distclean
   popd
 fi
-
