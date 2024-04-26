@@ -7,7 +7,7 @@ From: mathworks/matlab-deps:r2023b
 ################################################################################
 
 Maintainer      Jason Li
-Version         r2023b
+Version         R2023b
 Description     MATLAB container
 
 
@@ -29,7 +29,7 @@ MLM_LICENSE_FILE=27000@flexlm-server-name
     (e.g., LONI), you can bind the path to /usr/local/MATLAB/R2023b/licenses
     for MATLAB to find the license files:
     
-singularity exec -B /path/to/MATLAB/root/licenses:/usr/local/MATLAB/R2023b/licenses /path/to/matlab/image matlab
+singularity exec -B /path/to/MATLAB/licenses:/usr/local/MATLAB/R2023b/licenses /path/to/matlab/image matlab
 
 
 ################################################################################
