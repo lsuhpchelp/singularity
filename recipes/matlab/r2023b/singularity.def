@@ -1,0 +1,88 @@
+Bootstrap: docker
+From: mathworks/matlab-deps:r2023b
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         r2023b
+Description     MATLAB container
+
+
+################################################################################
+%help
+################################################################################
+
+To run this container with license server, You have 2 options:
+
+1) Set environmental variable before / when running "matlab" executable:
+
+MLM_LICENSE_FILE=port@license-server-address
+
+e.g.,
+
+MLM_LICENSE_FILE=27000@flexlm-server-name
+
+2) If you have a folder of multiple license files that stores license server
+    (e.g., LONI), you can bind the path to /usr/local/MATLAB/R2023b/licenses
+    for MATLAB to find the license files:
+    
+singularity exec -B /path/to/MATLAB/root/licenses:/usr/local/MATLAB/R2023b/licenses /path/to/matlab/image matlab
+
+
+################################################################################
+%environment
+################################################################################
+
+export PATH=/usr/local/MATLAB/R2023b/bin:$PATH
+
+
+################################################################################
+%files
+################################################################################
+
+mpm_input.txt /opt/
+
+
+################################################################################
+%setup
+################################################################################
+
+echo "
+WARNING: This recipe must be built in its current directory. 
+         If you receive error, please change to its current directory and build again."
+
+
+
+################################################################################
+%post
+################################################################################
+
+# Install additional dependencies.
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install --no-install-recommends --yes \
+    wget \
+    unzip \
+    ca-certificates \
+    python3 python3-pip xvfb \
+    gstreamer1.0-plugins-bad
+apt-get clean
+apt-get autoremove
+rm -rf /var/lib/apt/lists/*
+
+# Run mpm to install MATLAB in the target location and delete the mpm installation afterwards.
+# If mpm fails to install successfully, then print the logfile in the terminal, otherwise clean up.
+cd /opt
+wget https://www.mathworks.com/mpm/glnxa64/mpm
+chmod +x mpm
+./mpm install --inputfile /opt/mpm_input.txt \
+    || (echo "MPM Installation Failure. See below for more information:" && \
+        cat /tmp/mathworks_root.log && false)
+rm -rf mpm* /tmp/mathworks_root.log ${HOME}/.MathWorks
+    
+# Install matlab-proxy
+pip install matlab-proxy
+pip cache purge
