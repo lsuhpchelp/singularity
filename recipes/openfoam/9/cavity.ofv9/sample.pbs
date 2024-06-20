@@ -6,7 +6,7 @@
 #PBS -j oe
 #PBS -o output.mpirun
 
-export IMG="/home/admin/singularity/openfoam9.sdfibm-openmpi.4.0.3-pmi2.sif"
+export IMG="/home/admin/singularity/openfoam9-openmpi.4.0.3-pmi2.sif"
 
 module purge
 module load openmpi
