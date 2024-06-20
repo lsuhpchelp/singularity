@@ -7,7 +7,7 @@
 #SBATCH -o output.mpirun
 
 module purge
-IMG="/home/admin/singularity/openfoam9.sdfibm-openmpi.4.0.3-pmi2.sif"
+IMG="/home/admin/singularity/openfoam9-openmpi.4.0.3-pmi2.sif"
 # pre-processing, create mesh
 singularity exec -B /work ${IMG} blockMesh
 # create parallel domains
