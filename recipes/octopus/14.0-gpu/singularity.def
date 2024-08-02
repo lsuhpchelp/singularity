@@ -1,0 +1,56 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         14.0
+Description     Octopus is a software package for density-functional theory (DFT), and time-dependent density functional theory (TDDFT).
+
+
+################################################################################
+%environment
+################################################################################
+
+# On octopus>13 libsym (external-lib) is dynamically linked from /usr/local/lib.
+# Also find CUDA toolkits and drivers.
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda-12.4/compat/
+
+
+################################################################################
+%files
+################################################################################
+
+install_dependencies.sh /opt
+install_octopus.sh /opt
+
+
+################################################################################
+%setup
+################################################################################
+
+echo "
+WARNING: This recipe must be built in its current directory. 
+         If you receive error, please change to its current directory and build again."
+
+
+################################################################################
+%post
+################################################################################
+
+# the version to install (latest stable or develop) is set by buildarg VERSION_OCTOPUS
+# the development version of octopus is hosted on the branch "main" in the official repository.
+export VERSION_OCTOPUS=14.0
+
+# On octopus>13 libsym (external-lib) is dynamically linked from /usr/local/lib.
+# Also find CUDA toolkits and drivers. 
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda-12.4/compat/
+
+# Install octopus dependencies and compile octopus.
+cd /opt
+bash /opt/install_dependencies.sh && rm -rf /var/lib/apt/lists/*
+bash /opt/install_octopus.sh --version $VERSION_OCTOPUS --download_dir /opt/octopus --build_system autotools
+rm /opt/*.sh

@@ -1,0 +1,7 @@
+#+TITLE: Developers notes
+
+Potential points for improvement:
+
+- We use one particular combination of libraries and flags when compiling
+  Octopus. This is not as flexible as using spack, for example. However, those
+  flags etc can be adapted if necessary.
