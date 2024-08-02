@@ -1,0 +1,101 @@
+Bootstrap: docker
+From: intel/hpckit:2024.1.1-devel-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         2024.1
+Description     CP2K is a quantum chemistry and solid state physics software package that can perform atomistic simulations of solid state, liquid, molecular, periodic, material, crystal, and biological systems.
+
+
+################################################################################
+%post
+################################################################################
+
+# Stage 1: build step
+
+# Install packages required for the CP2K toolchain build
+apt-get update -qq; true && apt-get install -qq --no-install-recommends \
+    g++ gcc gfortran python3 \
+    bzip2 ca-certificates git make patch pkg-config unzip wget zlib1g-dev
+    
+# Download CP2K
+git clone --recursive -b support/v2024.1 https://github.com/cp2k/cp2k.git /opt/cp2k
+
+# Build CP2K toolchain for target CPU generic
+cd /opt/cp2k/tools/toolchain
+/bin/bash -c -o pipefail \
+    "./install_cp2k_toolchain.sh -j 8 \
+     --install-all \
+     --enable-cuda=no \
+     --target-cpu=generic \
+     --with-cusolvermp=no \
+     --with-intel=system --with-intelmpi=system --with-libtorch=no --with-mkl=system \
+     --with-intelmpi=system"
+
+# Build CP2K for target CPU generic
+cd /opt/cp2k
+/bin/bash -c -o pipefail \
+    "cp ./tools/toolchain/install/arch/local.psmp ./arch/; \
+     source ./tools/toolchain/install/setup; \
+     make -j 8 ARCH=local VERSION=psmp"
+
+# Collect components for installation and remove symbolic links
+/bin/bash -c -o pipefail \
+    "mkdir -p /toolchain/install /toolchain/scripts; \
+     for libdir in \$(ldd ./exe/local/cp2k.psmp | \
+                      grep /opt/cp2k/tools/toolchain/install | \
+                      awk '{print \$3}' | cut -d/ -f7 | \
+                      sort | uniq) setup; do \
+        cp -ar /opt/cp2k/tools/toolchain/install/\${libdir} /toolchain/install; \
+     done; \
+     cp /opt/cp2k/tools/toolchain/scripts/tool_kit.sh /toolchain/scripts; \
+     unlink ./exe/local/cp2k.popt; \
+     unlink ./exe/local/cp2k_shell.psmp"
+     
+     
+# Stage 2: install step
+
+# Install required packages
+apt-get update -qq; true && apt-get install -qq --no-install-recommends \
+    g++ gcc gfortran python3 && apt clean && rm -rf /var/lib/apt/lists/*
+
+# Install shared libraries required by the CP2K binaries
+cp -r /toolchain/ /opt/cp2k/tools/toolchain/
+
+# Create links to CP2K binaries
+/bin/bash -c -o pipefail \
+    "for binary in cp2k dumpdcd graph xyz2dcd; do \
+        ln -sf /opt/cp2k/exe/local/\${binary}.psmp \
+               /usr/local/bin/\${binary}; \
+     done; \
+     ln -sf /opt/cp2k/exe/local/cp2k.psmp \
+            /usr/local/bin/cp2k_shell; \
+     ln -sf /opt/cp2k/exe/local/cp2k.psmp \
+            /usr/local/bin/cp2k.popt"
+
+# Create entrypoint script file
+printf "#!/bin/bash\n\
+ulimit -c 0 -s unlimited\n\
+\
+export OMP_STACKSIZE=16M\n\
+export PATH=/opt/cp2k/exe/local:\${PATH}\n\
+source /opt/cp2k/tools/toolchain/install/setup\n\
+\"\$@\"" \
+>/usr/local/bin/entrypoint.sh && chmod 755 /usr/local/bin/entrypoint.sh
+
+# Create shortcut for regression test
+RUN printf "/opt/cp2k/tests/do_regtest.py --maxtasks 8 --workbasedir /mnt \$* local psmp" \
+>/usr/local/bin/run_tests && chmod 755 /usr/local/bin/run_tests
+
+
+################################################################################
+%runscript
+################################################################################
+
+# Define entrypoint
+/usr/local/bin/entrypoint.sh
+cp2k --help
