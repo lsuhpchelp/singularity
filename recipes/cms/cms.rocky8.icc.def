@@ -1,0 +1,72 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2021.4-devel-centos8
+
+%labels
+Author fchen14@lsu.edu
+
+%files
+
+%post
+
+cd /etc/yum.repos.d/
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+dnf -y install wget git curl-devel environment-modules m4 diffutils
+
+bash /opt/intel/oneapi/modulefiles-setup.sh
+export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+
+source /etc/profile.d/modules.sh
+module load icc mpi
+
+export CC=$(which mpiicc) 
+export CXX=$(which mpiicpc) 
+export FC=$(which mpiifort) 
+
+cd /opt
+wget https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-1_10_8.tar.gz
+tar zxf hdf5-1_10_8.tar.gz
+cd hdf5-hdf5-1_10_8
+./configure --enable-parallel --prefix=/usr
+make -j $(nproc)
+make install
+
+cd /opt
+wget https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.6.1.tar.gz
+tar zxf v4.6.1.tar.gz
+cd netcdf-c-4.6.1  
+./configure --prefix=/usr
+make -j $(nproc)
+make install
+
+cd /opt
+wget https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.4.5.tar.gz
+tar zxf v4.4.5.tar.gz
+cd netcdf-fortran-4.4.5
+./configure --prefix=/usr/
+make -j $(nproc)
+make install
+
+cd /opt
+git clone https://github.com/beatrixparis/connectivity-modeling-system.git cmsgit
+cd cmsgit/cms-master/src
+sed -i.bak "s#mpif90#mpiifort#g" ../arch/mpi_compiler
+sed -i.bak "s#x86_64-linux-gnu##g" ../arch/mpi_compiler
+sed -i.bak "s#gfortran_compiler#mpi_compiler#g" Makefile
+make
+#
+# Create bind points for HPC environment
+mkdir -p /project /work /usr/lib64
+
+%environment
+export LC_ALL=C
+export PATH=/opt/cmsgit/cms-master/src:$PATH
+export LD_LIBRARY_PATH="/usr/lib":$LD_LIBRARY_PATH
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+
+%runscript
+module load icc mpi
+exec "$@"
+
