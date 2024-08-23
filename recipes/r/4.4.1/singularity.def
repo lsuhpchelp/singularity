@@ -1,0 +1,75 @@
+Bootstrap: docker
+From: rockylinux:9
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         4.4.1
+Description     R environment, including common packages & RStudio server, all in one package!
+
+
+################################################################################
+%setup
+################################################################################
+
+echo "
+WARNING: This recipe must be built in its current directory. 
+         If you receive error, please change to its current directory and build again."
+
+
+################################################################################
+%files
+################################################################################
+
+rpackages.out /opt
+rpackages_biocmanager.out /opt
+
+################################################################################
+%post
+################################################################################
+
+  # Update repos
+  yum install -y yum-utils epel-release
+  /usr/bin/crb enable       # Enable the CRB repository
+  # yum-config-manager --add-repo https://raw.githubusercontent.com/TurboVNC/repo/main/TurboVNC.repo     # This shouldn't be needed any more. Save just in case
+  yum update -y
+
+  # Install all necesarry dependencies for our list of R packages
+  # May be redundant, but all needed
+  yum install -y nc python3-websockify tcl.x86_64 llvm.x86_64 wget cmake which emacs vim gcc libxml2-devel libcurl-devel gmp-devel mpfr-devel xz cargo gdal-devel proj-devel sqlite-devel geos-devel  harfbuzz-devel fribidi-devel cairo-devel mysql-devel unixODBC-devel postgresql-devel gsl-devel udunits2-devel freetype-devel libpng-devel libtiff-devel libjpeg-devel fftw-devel libsodium-devel ImageMagick-c++-devel poppler-cpp-devel poppler-glib-devel libgit2-devel protobuf-devel tar openssh-server openssh-clients procps chkconfig R-4.4.1
+  yum groupinstall -y fonts
+  
+  # Install R packages (takes a LONG LONG time). Install BiocManager packages first, as they are dependencies of regular installation
+  export LC_ALL="C.UTF-8"
+  cd /opt
+  Rscript -e "install.packages('BiocManager', repos='http://cran.rstudio.com/')"
+  Rscript -e "pkgs <- read.table('rpackages_biocmanager.out', stringsAsFactors=F)
+    BiocManager::install(unlist(pkgs))"
+  Rscript -e "pkgs <- read.table('rpackages.out', stringsAsFactors=F)
+    install.packages(unlist(pkgs), dependencies=T, repos='http://cran.rstudio.com/')"
+  
+  # Downloading and installing rstudio-server
+  wget https://download2.rstudio.org/server/rhel9/x86_64/rstudio-server-rhel-2024.04.2-764-x86_64.rpm
+  yum install -y rstudio-server-rhel-2024.04.2-764-x86_64.rpm
+  rm rstudio-server-rhel-2024.04.2-764-x86_64.rpm
+
+  # Do not start rstudio-server as a service on batch nodes
+  systemctl stop rstudio-server.service
+  systemctl disable rstudio-server.service
+
+  # creating bind point for getting ssh host keys
+  #mkdir -p /etc/ssh/
+  cd /etc/ssh
+  touch ssh_known_hosts
+  
+  # Clean cache
+  yum clean all
+
+################################################################################
+%environment
+################################################################################
+
+  export LC_ALL="C.UTF-8"
+  
