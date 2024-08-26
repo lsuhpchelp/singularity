@@ -1,0 +1,137 @@
+Bootstrap: docker
+From: intel/hpckit:2024.2.1-0-devel-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         2024.1
+Description     CP2K is a quantum chemistry and solid state physics software package that can perform atomistic simulations of solid state, liquid, molecular, periodic, material, crystal, and biological systems.
+
+
+################################################################################
+%files
+################################################################################
+
+setenvs.sh /opt
+
+
+################################################################################
+%post
+################################################################################
+
+#----------------------------------------------------------------------
+# 0. Set up environment & dependencies
+#----------------------------------------------------------------------
+
+apt update
+apt install -y wget git libxml2-dev libcurl4-openssl-dev m4 csh
+cd /opt
+. setenvs.sh
+
+#----------------------------------------------------------------------
+# 1. Download WRF, WPS and dependencies code
+#----------------------------------------------------------------------
+
+# Clone WRF
+git clone https://github.com/wrf-model/WRF.git
+cd /opt/WRF
+
+# Clone WPS
+git clone https://github.com/wrf-model/WPS.git
+
+#----------------------------------------------------------------------
+# 2. Install zlib
+#----------------------------------------------------------------------
+
+cd /opt/WPS/external/zlib-1.2.11
+./configure && make -j`nproc` && make install
+
+#----------------------------------------------------------------------
+# 3. Install libpng
+#----------------------------------------------------------------------
+
+cd /opt/WPS/external/libpng-1.6.37
+./configure && make -j`nproc` && make install
+
+#----------------------------------------------------------------------
+# 4. Install HDF5
+#----------------------------------------------------------------------
+
+cd /opt/WPS/external
+wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+tar -xf hdf5-1.14.4-3.tar.gz
+cd hdf5-1.14.4-3
+./configure --prefix=/usr/local --with-zlib=/usr/local --enable-fortran && make -j`nproc` && make install
+
+#----------------------------------------------------------------------
+# 5. Install NetCDF
+#----------------------------------------------------------------------
+
+cd /opt/WPS/external
+wget https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.2.tar.gz
+tar -xf v4.9.2.tar.gz 
+cd netcdf-c-4.9.2
+./configure --disable-dap && make -j`nproc` && make install
+
+cd /opt/WPS/external
+wget https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.6.1.tar.gz
+tar -xf v4.6.1.tar.gz
+cd netcdf-fortran-4.6.1
+./configure --disable-dap && make -j`nproc` && make install
+
+#----------------------------------------------------------------------
+# 6. Install JasPer
+#----------------------------------------------------------------------
+
+cd /opt/WPS/external/
+wget https://github.com/jasper-software/jasper/releases/download/version-4.2.4/jasper-4.2.4.tar.gz
+tar -xf jasper-4.2.4.tar.gz
+mkdir jasper && cd jasper
+cmake ../jasper-4.2.4
+make -j`nproc` && make install
+
+#----------------------------------------------------------------------
+# 7. Install WRF
+#----------------------------------------------------------------------
+
+# Configure WRF (Will wait for 2 standard input. Automated with here document
+cd /opt/WRF
+./configure << END
+78
+1
+END
+
+# Set up MPI compilers
+#sed -i "s/mpif90/mpiifort/g" configure.wrf
+#sed -i "s/mpicc/mpiicc/g" configure.wrf
+
+# Compile
+./compile -j `nproc` em_real 2>&1 | tee compile.log
+
+#----------------------------------------------------------------------
+# 8. Install WPS
+#----------------------------------------------------------------------
+
+# Configure WPS (Will wait for 1 standard input. Automated with here document
+cd /opt/WPS
+./configure << END
+20
+END
+
+# Set up MPI compilers
+sed -i "s/mpif90/mpif90 -f90=\$(SFC)/g" configure.wps
+sed -i "s/mpicc/mpicc -cc=\$(SCC)/g" configure.wps
+
+# Compile
+./compile 2>&1 | tee compile.log
+
+
+################################################################################
+%runscript
+################################################################################
+
+# Define entrypoint
+. /opt/setenvs.sh
