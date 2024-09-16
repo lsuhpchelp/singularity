@@ -1,0 +1,48 @@
+Bootstrap: docker
+From: rockylinux:9
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         8.0.1
+Description     A set of analysis pipelines that perform sample demultiplexing, barcode processing, single cell 3' and 5' gene counting, V(D)J transcript sequence assembly and annotation, and Feature Barcode analysis from single cell data.
+
+
+################################################################################
+%files
+################################################################################
+
+bcl2fastq2-v2-20-0-linux-x86-64.zip /opt
+
+
+################################################################################
+%post
+################################################################################
+
+# Update packages
+yum update -y
+yum install -y unzip which java
+cd /opt
+
+# Download and unpack CellRanger (update this link from official website if the key-pair expires)
+curl -o cellranger-8.0.1.tar.gz "https://cf.10xgenomics.com/releases/cell-exp/cellranger-8.0.1.tar.gz?Expires=1726552872&Key-Pair-Id=APKAI7S6A5RYOXBWRPDA&Signature=EAbh4w8X5-wB9jEFjDDl2fuUiT4E9LQEd0yVyjxhUC72bzZnBWDG2rkpcRyFz8yk~gbqqW6W4hpKtCeNdD4eQNLPd85zC-~ukkUfAs2uw71JhWV5h7BVfqbmnPi6NNIU6DDsYbIR5NLefr01cHh37kdPBgb6729M3rhGdYcsRLz1ffnjxCyKCck8R-I7NZSOqOEmpTzFhxbEBW4HFSY~h1gAgyhnxXkXOetv91bmYrr~YiJQGAeP46WJgtBkWmWCXZmLZ0cKadLJ8NWmlL7w~Mj4HZKDYXOHzeAIwgi2W-cFbMlu2vxzbqN7MrIISrCXdmp048PsiGkTLUKvNTC3Pw__"
+tar -xf cellranger-8.0.1.tar.gz
+
+# Install bcl2fastq2 from downloaded rpm
+unzip *.zip
+yum install -y *.rpm
+
+# Clean garbage
+rm *.tar.gz *.rpm *.zip
+yum clean all
+
+
+################################################################################
+%environment
+################################################################################
+
+# Setup environmental variables
+export PATH=/opt/cellranger-8.0.1/bin:$PATH
