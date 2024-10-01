@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: rockylinux:9
+
+%post
+    # Update the system
+    dnf -y update
+    dnf -y install epel-release
+    dnf -y config-manager --set-enabled crb
+
+    # Install Python
+    dnf -y install python3 python
+    dnf -y install R
+    dnf -y install gcc cfitsio-devel wget git
+
+    # Clean up to reduce image size
+    dnf clean all
+
+    cd /opt
+    wget https://www.astro.princeton.edu/~jhartman/vartools/vartools-1.41.tar.gz
+    tar zxf vartools-1.41.tar.gz
+    cd vartools-1.41/
+    ./configure CFLAGS="-I/usr/include/cfitsio/" --prefix=/usr
+    make #-j $(nproc)
+    make install
+
+    # Create bind points for HPC environment
+    mkdir -p /project /work /usr/lib64
+
+%environment
+    # Set environment variables
+    export LC_ALL=C
+    export PATH=/usr/bin:$PATH
+    export PYTHONPATH=/usr/lib/python3.9/site-packages:$PYTHONPATH
+
+%runscript
+    # Example runscript that starts Python
+    exec "$@"
+
