@@ -41,6 +41,7 @@ cd netcdf-c-4.6.1
 make -j $(nproc)
 make install
 
+# Cannot use netcdf-fortran 4.4.5 or above https://github.com/beatrixparis/connectivity-modeling-system/issues/38
 cd /opt
 wget https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.4.5.tar.gz
 tar zxf v4.4.5.tar.gz
