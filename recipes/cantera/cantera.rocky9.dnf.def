@@ -1,0 +1,47 @@
+Bootstrap: docker
+From: rockylinux:9
+
+%post
+    # Update the system
+    dnf -y update
+    dnf -y install epel-release
+    dnf -y config-manager --set-enabled crb
+
+    # Install Python
+    #dnf -y install python3 python
+    #dnf -y install R
+    #dnf -y install gcc cfitsio-devel wget git
+    dnf -y install gcc cfitsio-devel wget git
+    dnf -y install gcc-c++ gcc-gfortran python3 scons boost-devel hdf5-devel
+    dnf -y install sundials-devel eigen3-devel yaml-cpp-devel fmt-devel #highfive-devel
+    dnf -y install python3-devel Cython python3-numpy  python3-ruamel-yaml python3-pytest
+    dnf -y install python3-matplotlib python3-cantera
+
+    #pip install wheel
+    #python setup.py bdist_wheel
+    #pip3 install wheel
+    #python3 setup.py bdist_wheel
+
+    # Clean up to reduce image size
+    dnf clean all
+
+    #cd /opt
+    #git clone --recursive https://github.com/Cantera/cantera.git
+    #cd cantera
+    #git checkout 3.0
+    #scons build -j64
+    #scons install
+
+    # Create bind points for HPC environment
+    mkdir -p /project /work /usr/lib64
+
+%environment
+    # Set environment variables
+    export LC_ALL=C
+    export PATH=/usr/bin:$PATH
+    export PYTHONPATH=/usr/lib/python3.9/site-packages:$PYTHONPATH
+
+%runscript
+    # Example runscript that starts Python
+    exec "$@"
+
