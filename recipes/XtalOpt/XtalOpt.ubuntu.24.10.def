@@ -12,15 +12,8 @@ Description     XtalOpt
 
 %post
 
-#apt install build-essential
-#apt install git cmake qtbase5-dev libqwt-qt5-dev libeigen3-dev libssh-dev
-
 apt -o Acquire::ForceIPv4=true update 
-#DEBIAN_FRONTEND=noninteractive apt -o Acquire::ForceIPv4=true install -y --no-install-recommends tzdata
-#DEBIAN_FRONTEND=noninteractive apt -o Acquire::ForceIPv4=true install -y --no-install-recommends tzdata
 # install apt packages
-#apt -o Acquire::ForceIPv4=true install -y wget build-essential
-#apt -o Acquire::ForceIPv4=true install -y install git cmake qtbase5-dev libqwt-qt5-dev libeigen3-dev libssh-dev
 apt -o Acquire::ForceIPv4=true install -y wget build-essential
 apt -o Acquire::ForceIPv4=true install -y git cmake qtbase5-dev libqwt-qt5-dev libeigen3-dev libssh-dev
 
