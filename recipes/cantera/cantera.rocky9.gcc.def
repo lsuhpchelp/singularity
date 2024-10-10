@@ -19,7 +19,7 @@ From: rockylinux:9
 
     #pip install wheel
     #python setup.py bdist_wheel
-    pip3 install wheel Cython
+    pip3 install wheel Cython ipykernel
     #python3 setup.py bdist_wheel
 
     # Clean up to reduce image size
