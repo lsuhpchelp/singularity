@@ -8,10 +8,7 @@ From: rockylinux:9
     dnf -y config-manager --set-enabled crb
 
     # Install Python
-    #dnf -y install python3 python
-    #dnf -y install R
-    #dnf -y install gcc cfitsio-devel wget git
-    dnf -y install gcc cfitsio-devel wget git
+    dnf -y install gcc wget git
     dnf -y install gcc-c++ gcc-gfortran python3 scons boost-devel hdf5-devel
     dnf -y install sundials-devel eigen3-devel yaml-cpp-devel fmt-devel #highfive-devel
     dnf -y install python3-devel python3-numpy  python3-ruamel-yaml python3-pytest
@@ -38,8 +35,8 @@ From: rockylinux:9
 %environment
     # Set environment variables
     export LC_ALL=C
-    export PATH=/usr/bin:$PATH
-    export PYTHONPATH=/usr/lib/python3.9/site-packages:$PYTHONPATH
+    export PATH=/usr/local/bin:$PATH
+    export PYTHONPATH=/usr/local/lib64/python3.9/site-packages:$PYTHONPATH
 
 %runscript
     # Example runscript that starts Python
