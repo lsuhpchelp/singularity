@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: ubuntu:24.10
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Feng Chen
+Version         3.01.03
+Description     XtalOpt
+
+%post
+
+apt -o Acquire::ForceIPv4=true update 
+# install apt packages
+apt -o Acquire::ForceIPv4=true install -y wget build-essential
+apt -o Acquire::ForceIPv4=true install -y git cmake qtbase5-dev libqwt-qt5-dev libeigen3-dev libssh-dev
+
+cd /opt
+wget https://github.com/xtalopt/XtalOpt/archive/refs/tags/v13.2.0.tar.gz
+tar zxf v13.2.0.tar.gz
+cd XtalOpt-13.2.0
+mkdir build
+cd build
+insdir=/opt/xtalopt_linux
+cmake -DUSE_CLI_SSH=ON \
+      -DBUILD_INDEPENDENT_PACKAGE=ON \
+      -DCMAKE_INSTALL_PREFIX=$insdir \
+      ..
+make -j3
+make install
+
+%environment
+export PATH=/opt/xtalopt_linux/bin:$PATH
+
