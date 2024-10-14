@@ -10,7 +10,7 @@ LABEL    software="BEAST 2" \
 
 # Install dependencies
 RUN apt update
-RUN apt install -y wget cmake build-essential autoconf automake libtool pkg-config openjdk-11-jdk
+RUN apt install -y wget cmake build-essential autoconf automake libgtk-3-0 libtool pkg-config openjdk-11-jdk
 
 # Insall BEAGLE library
 WORKDIR /opt

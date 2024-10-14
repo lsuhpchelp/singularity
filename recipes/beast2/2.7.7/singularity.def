@@ -24,7 +24,7 @@ export PATH=/opt/beast/bin:$PATH
 
 # Install dependencies
 apt update
-apt install -y wget cmake build-essential autoconf automake libtool pkg-config openjdk-11-jdk
+apt install -y wget cmake build-essential autoconf automake libgtk-3-0 libtool pkg-config openjdk-11-jdk
 
 # Insall BEAGLE library
 cd /opt
