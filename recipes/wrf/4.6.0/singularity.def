@@ -134,12 +134,15 @@ END
 # Configure WPS (Will wait for 1 standard input. Automated with here document
 cd /opt/WRF/WPS
 ./configure << END
-20
+19
 END
 
 # Set up MPI compilers
 sed -i "s/mpif90/mpif90 -f90=\$(SFC)/g" configure.wps
 sed -i "s/mpicc/mpicc -cc=\$(SCC)/g" configure.wps
+
+# Correct the deprecated JasPer usage
+sed -i "s/jpc_decode(jpcstream,opts)/jas_image_decode(jpcstream,0,opts)/g" ungrib/src/ngl/g2/dec_jpeg2000.c
 
 # Compile
 ./compile 2>&1 | tee compile.log
