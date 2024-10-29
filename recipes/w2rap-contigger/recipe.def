@@ -1,0 +1,74 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2022.2-devel-ubuntu20.04
+
+%labels
+
+Author skasetti1@lsu.edu
+
+%files
+
+%environment
+
+export LC_ALL=C
+export DEBIAN_FRONTEND=noninteractive
+
+export OMP_PROC_BIND=spread
+export MALLOC_PER_THREAD=1
+
+export PATH=/opt/cmake-3.26.3-linux-x86_64/bin:$PATH
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+export PATH=/usr/local/bin:/opt/intel/oneapi/compiler/2022.1.0/linux/bin:$PATH
+
+export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/opt/intel/oneapi/mpi/2021.6.0/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/opt/intel/oneapi/mpi/2021.6.0/libfabric/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/opt/intel/oneapi/mkl/2022.1.0/lib/:${LD_LIBRARY_PATH}
+
+%post
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt -o Acquire::ForceIPv4=true install -y --no-install-recommends tzdata
+
+# install apt packages
+apt-get -o Acquire::ForceIPv4=true install -y wget curl vim git python3 python3-distutils python3-venv \
+unzip zip perl build-essential ca-certificates coreutils environment-modules gpg gfortran lsb-release \
+autoconf automake autotools-dev gcc gdb valgrind
+
+apt -o Acquire::ForceIPv4=true install -y --fix-missing libcurl3-gnutls libcurl4 libcurl4-openssl-dev \
+libsqlite3-dev subversion
+
+apt-get update
+
+# mkdir packages
+
+mkdir /opt/packages
+
+#Install cmake
+
+cd /opt/packages
+wget https://github.com/Kitware/CMake/releases/download/v3.26.3/cmake-3.26.3-linux-x86_64.tar.gz
+tar zxf cmake-3.26.3-linux-x86_64.tar.gz
+
+# install zlib
+
+cd /opt/packages
+wget https://www.zlib.net/fossils/zlib-1.2.13.tar.gz
+tar -xvf zlib-1.2.13.tar.gz && rm zlib-1.2.13.tar.gz
+cd zlib-1.2.13
+./configure --prefix=/usr/local
+make -j`nproc` && make install
+
+# install w2rap-contigger
+
+cd /opt
+git clone https://github.com/gonzalogacc/w2rap-contigger.git
+cd w2rap-contigger
+cmake -D CMAKE_CXX_COMPILER=g++ .  
+make -j 4
+
+apt-get clean
+
+%runscript
+exec "$@"
+
