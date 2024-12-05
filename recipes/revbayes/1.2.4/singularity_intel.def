@@ -1,0 +1,31 @@
+BootStrap: docker
+From: intel/hpckit:2024.2.1-0-devel-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         1.2.4
+Description     Bayesian Phylogenetic Inference Using Graphical Models and an Interactive Model-Specification Language.
+
+
+################################################################################
+%post
+################################################################################
+
+    # Dependencies
+    apt-get update && apt-get install -y build-essential libboost-all-dev && apt clean
+    
+    # Download and compile RevBayes
+    cd /opt
+    wget https://github.com/revbayes/revbayes/archive/refs/tags/v1.2.4.tar.gz && tar -xf v1.2.4.tar.gz
+    cd revbayes-1.2.4/projects/cmake
+    ./build.sh -mpi true -j `nproc`
+    ./build.sh -j `nproc`
+    mv rb* /usr/local/bin/
+    
+    # Remove source files
+    rm -rf /opt/v1.2.4.tar.gz /opt/revbayes-1.2.4/
+    
