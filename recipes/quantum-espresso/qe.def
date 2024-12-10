@@ -1,0 +1,62 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2022.2-devel-ubuntu20.04
+
+%labels
+MAINTAINER  Siva Prasad Kasetti <skasetti1@lsu.edu>
+
+%files
+
+%post
+
+export CC="mpiicc"
+export CXX="mpiicpc"
+export FC="mpiifort"
+export F77="mpiifort"
+export MPICXX="mpiicc"
+export MPIF77="mpiifort"
+export MPIFC="mpiifort"
+
+export PATH=/usr/local/bin:$PATH
+export PATH=/opt/q-e-qe-7.2/QERaman/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+apt-get update
+
+DEBIAN_FRONTEND=noninteractive apt -o Acquire::ForceIPv4=true install -y --no-install-recommends tzdata
+
+apt-get install -y --fix-missing autoconf wget build-essential ca-certificates gfortran \
+libblas3 libc6 libfftw3-dev libgcc-s1 liblapack-dev \
+
+apt-get update
+
+wget https://github.com/Kitware/CMake/releases/download/v3.29.8/cmake-3.29.8-linux-x86_64.tar.gz
+tar -xvf cmake-3.29.8-linux-x86_64.tar.gz && rm cmake-3.29.8-linux-x86_64.tar.gz
+
+# Install Quantum Espresso
+
+cd /opt
+wget https://gitlab.com/QEF/q-e/-/archive/qe-7.2/q-e-qe-7.2.tar.gz
+tar -zxvf q-e-qe-7.2.tar.gz && rm q-e-qe-7.2.tar.gz
+cd q-e-qe-7.2
+./configure --prefix=/usr/local CC=icc CXX=icpc FC=ifort MPIF90=mpiifort --enable-openmp --enable-parallel --disable-shared --with-scalapack=yes
+make -j4 all
+
+git clone https://github.com/nguyen-group/QERaman.git
+cd QERaman/src
+make all
+
+# Create bind points for HPC environment
+mkdir -p /project /work /usr/lib64
+
+%environment
+export LC_ALL=C
+export DEBIAN_FRONTEND=noninteractive
+
+export PATH=/opt/cmake-3.29.8-linux-x86_64/bin:$PATH
+export PATH=/usr/local/bin:$PATH
+export PATH=/opt/q-e-qe-7.2/QERaman/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+%runscript
+exec "$@"
+
