@@ -1,0 +1,153 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2022.2-devel-ubuntu20.04
+
+%labels
+MAINTAINER  Siva Prasad Kasetti <skasetti1@lsu.edu>
+
+%files
+
+/work/kasetti/lsuHPC/Copy_From_Desktop/everything_else/test/142586 /opt
+
+%post
+
+export CC="mpiicc"
+export CXX="mpiicpc"
+export FC="mpiifort"
+export F77="mpiifort"
+export MPICC="mpiicc"
+export MPICXX="mpiicpc"
+export MPIF77="mpiifort"
+export MPIFC="mpiifort"
+
+export NETCDF=/usr/local
+export HDF5=/usr/local
+
+export PATH=/usr/local/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=/opt/packages/gdal-3.6.2/build:$PKG_CONFIG_PATH
+
+apt-get update
+
+DEBIAN_FRONTEND=noninteractive apt -o Acquire::ForceIPv4=true install -y --no-install-recommends tzdata
+
+apt-get install -y --fix-missing wget autoconf automake autotools-dev libxml2-dev \
+libbz2-dev zlib1g-dev libcurl4-openssl-dev libmetis-dev libparmetis-dev petsc-dev \
+flex bison libexpat1 libexpat1-dev libproj-dev libshp-dev subversion zip unzip \
+uuid-dev pkg-config
+
+apt-get update
+
+# install cmake
+mkdir /opt/packages
+cd /opt/packages
+wget https://github.com/Kitware/CMake/releases/download/v3.26.3/cmake-3.26.3-linux-x86_64.tar.gz
+tar zxf cmake-3.26.3-linux-x86_64.tar.gz && rm cmake-3.26.3-linux-x86_64.tar.gz
+
+# install zlib
+
+cd /opt/packages
+wget https://www.zlib.net/fossils/zlib-1.2.13.tar.gz
+tar -xvf zlib-1.2.13.tar.gz && rm zlib-1.2.13.tar.gz
+cd zlib-1.2.13
+./configure
+make -j`nproc` && make install
+
+# install szip
+
+cd /opt/packages
+wget https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz
+tar -xvf szip-2.1.1.tar.gz && rm szip-2.1.1.tar.gz
+cd szip-2.1.1
+#./configure --prefix=/usr/local CC=$CC CXX=$CXX FC=$FC F77=$F77
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=ON ..
+make -j 4
+make install
+
+# install HDF5
+
+cd /opt/packages
+wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+tar -xf hdf5-1.14.4-3.tar.gz && rm hdf5-1.14.4-3.tar.gz
+cd hdf5-1.14.4-3
+#./configure --prefix=/usr/local --with-zlib=/usr/local --enable-fortran && make -j`nproc` && make install
+CC=$CC CXX=$CXX FC=$FC F77=$F77 ./configure --prefix=/usr/local --with-zlib=/usr/local --enable-fortran --with-szlib=/usr/local
+make -j`nproc` && make install
+
+# install GDAL
+
+cd /opt/packages
+wget https://github.com/OSGeo/gdal/releases/download/v3.6.2/gdal-3.6.2.tar.gz
+tar -xvf gdal-3.6.2.tar.gz && rm gdal-3.6.2.tar.gz
+cd gdal-3.6.2
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DGDAL_BUILD_OPTIONAL_DRIVERS:BOOL=OFF -DOGR_BUILD_OPTIONAL_DRIVERS:BOOL=OFF
+#cmake --build .
+cmake --build . && cmake install . 
+
+# install NetCDF
+
+cd /opt/packages
+wget https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.2.tar.gz
+tar -xf v4.9.2.tar.gz && rm v4.9.2.tar.gz
+cd netcdf-c-4.9.2
+./configure --disable-dap --prefix=/usr/local 
+#mkdir build && cd build
+#cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_SZIP=ON -DSZIP_INCLUDE_DIR=/usr/local/include -DSZIP_LIBRARY=/usr/local/lib/libszip.so ..
+make -j`nproc` && make install
+
+cd /opt/packages
+wget https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.6.1.tar.gz
+tar -xf v4.6.1.tar.gz && rm v4.6.1.tar.gz
+cd netcdf-fortran-4.6.1
+#./configure --disable-dap --prefix=/usr/local
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local
+make -j`nproc` && make install
+
+# install patchelf
+
+cd /opt/packages
+wget https://github.com/NixOS/patchelf/archive/refs/tags/0.18.0.zip
+unzip 0.18.0.zip && rm 0.18.0.zip
+cd patchelf-0.18.0
+./bootstrap.sh
+./configure --prefix=/usr/local
+make && make install
+
+# install fortranGIS
+
+cd /opt/packages
+wget https://github.com/ARPA-SIMC/fortrangis/archive/refs/tags/v3.0-1.tar.gz
+tar -xvf v3.0-1.tar.gz && rm v3.0-1.tar.gz
+cd fortrangis-3.0-1
+mkdir build && cd build
+#cmake -DINCLUDE_DIR=/opt/packages/fortrangis/include -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
+cmake --build . && cmake --install .
+
+# Create a softlink which addresses the lib name mismatch
+
+ln -s /usr/local/lib/libfortranGIS.a /usr/local/lib/libfortrangis.a
+
+# install Delft3D Waves
+
+cd /opt/142586
+./build.sh dwaves --compiler ${MPIF77}
+
+# Create bind points for HPC environment
+mkdir -p /project /work /usr/lib64
+
+%environment
+export LC_ALL=C
+export DEBIAN_FRONTEND=noninteractive
+export PATH=/opt/packages/cmake-3.26.3-linux-x86_64/bin:$PATH
+export PATH=/opt/142586/src/bin:$PATH
+export NETCDF=/usr/local
+export HDF5=/usr/local
+export PATH=/usr/local/bin:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+export PKG_CONFIG_PATH=/opt/packages/gdal-3.6.2/build:$PKG_CONFIG_PATH
+
+%runscript
+exec "$@"
+
