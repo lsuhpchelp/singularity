@@ -37,6 +37,8 @@ To learn how to run these jobs effectively, please refer to the following guidan
 ## Repository Structure
 
 - **`centos7-runner.def`**: Singularity recipe for the CentOS 7 runtime.
+- **`run_cpu_serial.sh`**: SLURM script for a serial job.
+- **`run_cpu_omp.sh`**: SLURM script for a multi-threaded OpenMP job.
 - **`run_cpu_mpi.sh`**: SLURM script for CPU-based MPI jobs.
 - **`run_gpu_mpi.sh`**: SLURM script for GPU-accelerated MPI jobs.
 - **`cpu_mpi_guidance.md`**: Detailed guidance for running CPU-based MPI jobs.
