@@ -4,6 +4,7 @@
 #SBATCH -n 48
 
 module purge
+# load the centos7-runner module
 module load centos7-runner/1.0
 
 # use mvapich2.modules to load necessary modules from rhel7 software stack
