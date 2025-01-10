@@ -49,7 +49,8 @@ To learn how to run these jobs effectively, please refer to the following guidan
 ### Running the CPU-Based MPI Job
 ```bash
 sbatch run_cpu_mpi.sh
-
+```
 ### Running the GPU-Based MPI Job
 ```bash
 sbatch run_gpu_mpi.sh
+```
