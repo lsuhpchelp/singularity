@@ -10,12 +10,6 @@ module load centos7-runner/1.0
 # use mvapich2.modules to load necessary modules from rhel7 software stack
 export SINGULARITYENV_MODULE_FILE="$PWD/mvapich2.modules"
 
-#export SINGULARITYENV_OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-#/usr/bin/time centos7run lmp -in in.ser.lj -pk omp $SLURM_CPUS_PER_TASK -sf omp
-/usr/bin/time centos7run lmp -in in.ser.lj -pk omp $SLURM_CPUS_PER_TASK -sf omp
-
 export SINGULARITYENV_OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-#/usr/bin/time centos7run lmp -in in.ser.lj -pk omp $SLURM_CPUS_PER_TASK -sf omp
 /usr/bin/time centos7run lmp -in in.ser.lj -sf omp
 
-/usr/bin/time centos7run lmp -in in.ser.lj -pk omp $SLURM_CPUS_PER_TASK -sf omp
