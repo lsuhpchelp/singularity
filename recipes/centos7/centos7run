@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Wrapper script for running Singularity containers with GPU support (if present) and bind paths
+
+# Check if the application name is provided
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <application> [application_args...]"
+    exit 1
+fi
+
+# Define the Singularity image and application to run
+SINGULARITY_IMAGE="/project/containers/images/centos7-runner.sif"
+APPLICATION=$1
+shift 1  # Remove the first two arguments from the list
+
+# Define default bind paths (can be customized)
+BIND_PATHS="/usr/local/packages,/usr/local/compilers,/work,/project,/var/scratch/"
+
+# Export the bind paths for Singularity
+export SINGULARITY_BINDPATH=$BIND_PATHS
+
+# Check if the nvidia-smi command is available
+NVFLAG=''
+if command -v nvidia-smi &> /dev/null; then
+    #echo "nvidia-smi is available on this system."
+    NVFLAG='--nv'
+fi
+
+# Run the Singularity container with GPU support
+#singularity run -B $BIND_PATHS $NVFLAG $SINGULARITY_IMAGE $APPLICATION "$@"
+singularity run $NVFLAG $SINGULARITY_IMAGE $APPLICATION "$@"
+
