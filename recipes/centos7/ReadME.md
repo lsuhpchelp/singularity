@@ -18,8 +18,8 @@ This repository includes example SLURM scripts and guidance documents for runnin
 ## How to Run MPI Jobs
 
 This repository includes two example SLURM scripts for running MPI-based jobs:
-1. **CPU-Only MPI Job**: Demonstrates running MPI jobs without GPU acceleration.
-2. **GPU-Accelerated MPI Job**: Demonstrates using GPUs for accelerated computations.
+1. **CPU-Only MPI Job**: Demonstrates running MPI jobs on CPU nodes.
+2. **GPU-Accelerated MPI Job**: Demonstrates running MPI jobs with GPUs.
 
 ### Guidance Documents
 
@@ -29,8 +29,7 @@ To learn how to run these jobs effectively, please refer to the following guidan
    - Includes details about environment variables, module configurations, and scaling.
 
 2. **[GPU-Accelerated MPI Job Guidance](gpu_mpi_guidance.md)**:
-   - Details how to run GPU-accelerated MPI jobs.
-   - Covers GPU-related environment variables, CUDA setup, and performance optimization.
+   - Details on how to run GPU-accelerated MPI jobs.
 
 ---
 
