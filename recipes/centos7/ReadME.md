@@ -10,8 +10,8 @@ This repository includes example SLURM scripts and guidance documents for runnin
 ## Getting Started
 
 ### Prerequisites
-1. **Singularity**: Ensure Singularity is installed on your system. Refer to the [Singularity Documentation](https://sylabs.io/guides/) for installation instructions.
-2. **Cluster Environment**: Access to a cluster with SLURM workload manager and necessary modules (e.g., MPI, GPU drivers).
+1. **Singularity**: Ensure Singularity is installed on your system (Available on LONI QB3 compute nodes). Refer to the [Singularity Documentation](https://docs.sylabs.io/guides/latest/user-guide/) for the user guide.
+2. **Cluster Environment**: Access to a cluster with SLURM workload manager (LONI QB3) and necessary modules (e.g., MPI, GPU drivers).
 
 ---
 
