@@ -45,7 +45,14 @@ To learn how to run these jobs effectively, please refer to the following guidan
 ---
 
 ## Example Usage
-
+### Running the serial Job
+```bash
+sbatch run_cpu_serial.sh
+```
+### Running the OpenMP (multi-threaded) Job
+```bash
+sbatch run_cpu_omp.sh
+```
 ### Running the CPU-Based MPI Job
 ```bash
 sbatch run_cpu_mpi.sh
