@@ -1,7 +1,8 @@
 # CentOS 7 Runner Singularity Image
 
 ## Overview
-The **CentOS 7 Runner** provides a CentOS 7 runtime environment for running RHEL7-compiled software on upgraded RHEL8. This containerized approach ensures compatibility with legacy software compiled on old operating system.
+
+The **CentOS 7 Runner** provides a CentOS 7 runtime environment for running RHEL7-compiled software on upgraded RHEL8. This containerized approach ensures compatibility with legacy software compiled on the old operating system.
 
 This repository includes example SLURM scripts and guidance documents for running **MPI-based applications** using the CentOS 7 runtime with Singularity.
 
