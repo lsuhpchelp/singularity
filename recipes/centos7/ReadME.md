@@ -10,9 +10,13 @@ This repository includes example SLURM scripts and guidance documents for runnin
 
 ## Getting Started
 
-### Prerequisites
-1. **Singularity**: Ensure Singularity is installed on your system (Available on LONI QB3 compute nodes). Refer to the [Singularity Documentation](https://docs.sylabs.io/guides/latest/user-guide/) for the user guide.
-2. **Cluster Environment**: Access to a cluster with SLURM workload manager (LONI QB3) and necessary modules (e.g., MPI, GPU drivers).
+## `centos7run` Wrapper Script 
+
+We have provided the centos7run wrapper script. This script simplifies running applications within the Singularity container by automatically enabling GPU support (if available) and binding necessary host paths. It ensures a streamlined experience when using the CentOS 7 runtime for RHEL7 software. To load the wrapper script, load the centos7-runner/1.0 module via the command:
+```
+module load centos7-runner/1.0
+```
+The command `centos7run` will then become available to your command line.
 
 ---
 
