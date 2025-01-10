@@ -1,0 +1,5 @@
+#!/bin/bash
+export MODULEPATH=/usr/local/packages/Modules/modulefiles/apps:$MODULEPATH
+module purge
+module load lammps/20220324/gcc-9.3.0-cuda-intel-mpi-2019.5.281
+
