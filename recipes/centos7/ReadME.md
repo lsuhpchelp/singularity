@@ -10,9 +10,24 @@ This repository includes example SLURM scripts and guidance documents for runnin
 
 ## Getting Started
 
-### Prerequisites
-1. **Singularity**: Ensure Singularity is installed on your system (Available on LONI QB3 compute nodes). Refer to the [Singularity Documentation](https://docs.sylabs.io/guides/latest/user-guide/) for the user guide.
-2. **Cluster Environment**: Access to a cluster with SLURM workload manager (LONI QB3) and necessary modules (e.g., MPI, GPU drivers).
+## `centos7run` Wrapper Script 
+
+We have provided the centos7run wrapper script. This script simplifies running applications within the Singularity container by automatically enabling GPU support (if available) and binding necessary host paths. It ensures a streamlined experience when using the CentOS 7 runtime for RHEL7 software. To load the wrapper script, load the centos7-runner/1.0 module via the command:
+```
+module load centos7-runner/1.0
+```
+The command `centos7run` will then become available to your command line.
+### How to use `centos7run`
+
+`centos7run` only needs to be added before the executable name you intended to run:
+
+```
+centos7run <executable-name>
+```
+For example, to run the lammps executable named `lmp` (previously compiled on RHEL7, add the centos7run before the `lmp` executable:
+```
+centos7run lmp
+```
 
 ---
 
@@ -37,6 +52,8 @@ To learn how to run these jobs effectively, please refer to the following guidan
 ## Repository Structure
 
 - **`centos7-runner.def`**: Singularity recipe for the CentOS 7 runtime.
+- **`run_cpu_serial.sh`**: SLURM script for a serial job.
+- **`run_cpu_omp.sh`**: SLURM script for a multi-threaded OpenMP job.
 - **`run_cpu_mpi.sh`**: SLURM script for CPU-based MPI jobs.
 - **`run_gpu_mpi.sh`**: SLURM script for GPU-accelerated MPI jobs.
 - **`cpu_mpi_guidance.md`**: Detailed guidance for running CPU-based MPI jobs.

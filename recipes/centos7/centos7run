@@ -18,7 +18,7 @@ fi
 # Define the Singularity image and application to run
 SINGULARITY_IMAGE="/project/containers/images/centos7-runner.sif"
 APPLICATION=$1
-shift 1  # Remove the first two arguments from the list
+shift 1  # Remove the first argument from the list
 
 # Define default bind paths (can be customized)
 BIND_PATHS="/usr/local/packages,/usr/local/compilers,/work,/project,/var/scratch/"
