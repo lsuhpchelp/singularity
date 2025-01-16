@@ -17,6 +17,17 @@ We have provided the centos7run wrapper script. This script simplifies running a
 module load centos7-runner/1.0
 ```
 The command `centos7run` will then become available to your command line.
+### How to use `centos7run`
+
+`centos7run` only needs to be added before the executable name you intended to run:
+
+```
+centos7run <executable-name>
+```
+For example, to run the lammps executable named `lmp` (previously compiled on RHEL7, add the centos7run before the `lmp` executable:
+```
+centos7run lmp
+```
 
 ---
 
