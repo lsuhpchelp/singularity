@@ -2,6 +2,13 @@
 
 # Wrapper script for running Singularity containers with GPU support (if present) and bind paths
 
+# Check if the singularity command is available
+if ! command -v singularity &> /dev/null; then
+    echo "Error: singularity is not available."
+    echo "Please use the 'centos7run' script on a compute node via either an interactive or batch job instead of the headnode."
+    exit 1
+fi
+
 # Check if the application name is provided
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <application> [application_args...]"
