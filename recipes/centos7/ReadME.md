@@ -20,7 +20,9 @@ The command `centos7run` will then become available to your command line.
 
 ### How to use `centos7run`
 
-`centos7run` only needs to be added before the executable name you intended to run:
+#### General Usage (Serial Programs)
+
+Normally, for serial programs that do not require parallelization, `centos7run` only needs to be added before the executable name you intended to run:
 ```
 centos7run <executable-name>
 ```
@@ -32,18 +34,27 @@ If you run the lammps program using the command `lmp <command line arguments>` o
 ```
 lmp -in input -log output
 ```
-The command will simply become:
-```
-centos7run lmp -in input -log output
-```
-on the current RHEL8 OS. Similarily, for MPI programs previously run using `srun`, e.g., 
+The command will become the below on the current RHEL8 OS:
+<pre>
+<b>centos7run</b> lmp -in input -log output
+</pre>
+
+#### OpenMP Programs
+For shared memory programs that utilize OpenMP, it is essential to specify the number of threads by setting the `OMP_NUM_THREADS` environment variable inside the container image. To achieve this, you can export the following environment variable before running `centos7run`:
+<pre>
+export <b>SINGULARITYENV_OMP_NUM_THREADS</b>=&lt;number of threads&gt;
+</pre>
+Based on this \<number of threads> value, the `centos7run` script will automatically set the `OMP_NUM_THREADS` variable within the container.
+
+#### MPI Programs
+Similarly, for MPI programs previously run using `srun`, e.g., 
 ```
 srun -n8 lmp -in input -log output
 ```
 add `centos7run` before the MPI executable name:
-```
-srun -n8 centos7run lmp -in input -log output
-```
+<pre>
+srun -n8 <b>centos7run</b> lmp -in input -log output
+</pre>
 
 ---
 
