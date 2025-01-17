@@ -17,16 +17,24 @@ We have provided the centos7run wrapper script. This script simplifies running a
 module load centos7-runner/1.0
 ```
 The command `centos7run` will then become available to your command line.
+
 ### How to use `centos7run`
 
 `centos7run` only needs to be added before the executable name you intended to run:
-
 ```
 centos7run <executable-name>
 ```
-For example, to run the lammps executable named `lmp` (previously compiled on RHEL7, add the centos7run before the `lmp` executable:
+For example, to run the lammps executable named `lmp` (previously compiled on RHEL7, add `centos7run` before the `lmp` executable:
 ```
 centos7run lmp
+```
+If you run the lammps program using the command `lmp <command line arguments>`, e.g.:
+```
+lmp -in input -log output
+```
+The command will simply become:
+```
+centos7run lmp -in input -log output
 ```
 
 ---
@@ -42,7 +50,7 @@ This repository includes two example SLURM scripts for running MPI-based jobs:
 To learn how to run these jobs effectively, please refer to the following guidance:
 1. **[CPU-Based MPI Job Guidance](cpu_mpi_guidance.md)**:
    - Explains how to run MPI-based jobs on CPU-only nodes.
-   - Includes details about environment variables, module configurations, and scaling.
+   - Includes details about environment variables, module configurations, and running on two compute nodes.
 
 2. **[GPU-Accelerated MPI Job Guidance](gpu_mpi_guidance.md)**:
    - Details on how to run GPU-accelerated MPI jobs.
