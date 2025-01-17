@@ -77,11 +77,17 @@ This SLURM script is designed to run a molecular dynamics simulation using **LAM
 
 2. **Customize the `mvapich2.modules` File**:
    - The `mvapich2.modules` file (provided in this folder) should specify the RHEL7 modules needed for LAMMPS and MPI to run inside the CentOS 7 container.
-
+   Example content of `mvapich2.modules`:
+   ```bash
+   #!/bin/bash
+   export MODULEPATH=/usr/local/packages/Modules/modulefiles/apps:$MODULEPATH
+   module purge
+   module load lammps/20200303/intel-19.0.5-mvapich-2.3.3
+   ```
 3. **Submit the Job**:
    - Submit the job using:
      ```
-     sbatch mpi.hybrid.mvapich2.sh.sh
+     sbatch run_cpu_mpi.sh
      ```
 
 4. **Monitor the Job**:
