@@ -83,6 +83,7 @@ To learn how to run these jobs effectively, please refer to the following guidan
 - **`run_cpu_omp.sh`**: SLURM script for a multi-threaded OpenMP job.
 - **`run_cpu_mpi.sh`**: SLURM script for CPU-based MPI jobs.
 - **`run_gpu_mpi.sh`**: SLURM script for GPU-accelerated MPI jobs.
+- **`run_gpu_cpu_mpi.sh`**: SLURM example of running two tasks (first an MPI GPU task, then an MPI CPU task) in the same script using different environment modules.
 - **`cpu_mpi_guidance.md`**: Detailed guidance for running CPU-based MPI jobs.
 - **`gpu_mpi_guidance.md`**: Detailed guidance for running GPU-accelerated MPI jobs.
 
