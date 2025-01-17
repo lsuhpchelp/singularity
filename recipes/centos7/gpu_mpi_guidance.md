@@ -1,4 +1,4 @@
-### Guidance for SLURM Job script: mpi.hybrid.impi_cuda.sh
+### Guidance for SLURM Job script: run_gpu_mpi.sh
 
 This SLURM script is designed to run a **GPU-accelerated molecular dynamics simulation** using **LAMMPS** on LONI QB3. It utilizes the **CentOS 7 runtime environment** provided by the `centos7-runner` module to ensure compatibility with the RHEL7 software stack on the upgraded RHEL 8 Operating System. Below is a detailed explanation of the script:
 
