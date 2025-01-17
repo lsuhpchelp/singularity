@@ -1,4 +1,4 @@
-### Guidance for SLURM Script
+### Guidance for SLURM Script run_cpu_mpi.sh
 
 This SLURM script is designed to run a molecular dynamics simulation using **LAMMPS** on a cluster. It leverages a **CentOS 7 runtime environment** via the `centos7-runner` module and Singularity to run applications built for **RHEL7** software stack on the upgraded RHEL 8 Operating System. Below is a detailed explanation of the script:
 
