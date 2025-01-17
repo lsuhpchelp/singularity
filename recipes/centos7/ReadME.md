@@ -24,17 +24,25 @@ The command `centos7run` will then become available to your command line.
 ```
 centos7run <executable-name>
 ```
-For example, to run the lammps executable named `lmp` (previously compiled on RHEL7, add `centos7run` before the `lmp` executable:
+For example, to run the lammps executable named `lmp` (previously compiled on RHEL7), add `centos7run` before the `lmp` executable:
 ```
 centos7run lmp
 ```
-If you run the lammps program using the command `lmp <command line arguments>`, e.g.:
+If you run the lammps program using the command `lmp <command line arguments>` on the previous RHEL7 OS, e.g.:
 ```
 lmp -in input -log output
 ```
 The command will simply become:
 ```
 centos7run lmp -in input -log output
+```
+on the current RHEL8 OS. Similarily, for MPI programs previously run using `srun`, e.g., 
+```
+srun -n8 lmp -in input -log output
+```
+add `centos7run` before the MPI executable name:
+```
+srun -n8 centos7run lmp -in input -log output
 ```
 
 ---
