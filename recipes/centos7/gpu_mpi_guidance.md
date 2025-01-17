@@ -78,7 +78,7 @@ This SLURM script is designed to run a **GPU-accelerated molecular dynamics simu
 3. **Submit the Job**:
    - Submit the job script using:
      ```bash
-     sbatch mpi.hybrid.impi_cuda.sh
+     sbatch run_gpu_mpi.sh
      ```
 
 4. **Monitor the Job**:
