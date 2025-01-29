@@ -9,3 +9,4 @@ LABEL    software="BLAST" \
     about.home="https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi" \ 
     software.version="2.14.1"
 
+ENV LC_ALL=C
