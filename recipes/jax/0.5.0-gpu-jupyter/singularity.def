@@ -1,0 +1,45 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         0.5.0
+CUDA_version    12.8
+CUDNN_version   9
+Description     JAX is NumPy on the CPU, GPU, and TPU, with great automatic differentiation for high-performance machine learning research.
+
+################################################################################
+%post
+################################################################################
+
+# Install dependencies
+apt update
+apt install -y wget qtbase5-dev qt5-qmake python3-dev pip libmpich-dev && apt clean
+ln -s /usr/bin/python3 /usr/bin/python 
+
+# Install JAX
+pip install -U "jax[cuda12]"==0.5.0 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+# Install additional packages
+pip install pyqt5 \
+            jupyterlab \
+            Cython \
+            dask \
+            mpi4py \
+            nltk \
+            numba \
+            numexpr \
+            pandas \
+            regex \
+            seaborn \
+            scikit-image \
+            scikit-learn \
+            scikit-learn-intelex \
+            scipy \
+            statsmodels \
+            sympy \
+            tqdm && pip cache purge
