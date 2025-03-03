@@ -1,0 +1,109 @@
+BootStrap: docker
+From: intel/oneapi-hpckit:2021.4-devel-centos8
+
+#%files
+    #./OpenFOAM-2.4.0.tgz  /opt
+    #./ThirdParty-2.4.0.tgz /opt
+
+
+%post
+    # Update and install required dependencies
+    cd /etc/yum.repos.d/
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+    #yum update -y
+    #yum groupinstall -y "Development Tools"
+    dnf -y install wget git curl-devel environment-modules m4 diffutils
+    dnf -y install git make automake libtool wget
+    dnf -y install flex bison boost-devel libmpc-devel
+
+    # Set up MPI environment
+    bash /opt/intel/oneapi/modulefiles-setup.sh
+    source /etc/profile.d/modules.sh
+    export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    module purge
+    module load icc mpi
+    source /opt/intel/oneapi/setvars.sh
+
+    # Clone 
+    mkdir -p /opt/OpenFOAM
+    cd /opt
+    #mv ./OpenFOAM-2.4.0.tgz /opt/OpenFOAM
+    #mv ./ThirdParty-2.4.0.tgz /opt/OpenFOAM
+    cd /opt/OpenFOAM
+
+    # from notes: https://gist.github.com/BinWang0213/ad7d225b20adced4f563c9d45685bee4
+    git clone https://github.com/OpenFOAM/OpenFOAM-2.4.x.git
+    git clone https://github.com/OpenFOAM/ThirdParty-2.4.x.git
+
+    cd ThirdParty-2.4.x
+    wget https://gforge.inria.fr/frs/download.php/file/34099/scotch_6.0.3.tar.gz
+    tar -zxf scotch_6.0.3.tar.gz
+
+    cd /opt/OpenFOAM/OpenFOAM-2.4.x
+    sed -i 's/^export WM_COMPILER=.*$/export WM_COMPILER=Icc/' etc/bashrc
+    sed -i 's/^export WM_MPLIB=.*$/export WM_MPLIB=INTELMPI/'  etc/bashrc
+
+    sed -i '89,92s|export WM_CC=.*|export WM_CC='\''icc'\''|;
+            89,92s|export WM_CXX=.*|export WM_CXX='\''icpc'\''|;
+            89,92s|export WM_CFLAGS=.*|export WM_CFLAGS='\''-O2 -no-prec-div -m64 -fPIC'\''|;
+            89,92s|export WM_CXXFLAGS=.*|export WM_CXXFLAGS='\''-O1 -no-prec-div -m64 -fPIC'\''|' etc/config/settings.sh
+
+    sed -i '572,573s|\(_foamAddPath\s\+\)\$MPI_ARCH_PATH/bin64|\1$MPI_ARCH_PATH/bin|;
+            572,573s|\(_foamAddLib\s\+\)\$MPI_ARCH_PATH/lib64|\1$MPI_ARCH_PATH/lib|' etc/config/settings.sh
+
+    sed -i '2,3s|^PINC\s*=.*|PINC       = -I$(MPI_ARCH_PATH)/include|;
+            2,3s|^PLIBS\s*=.*|PLIBS      = -L$(MPI_ARCH_PATH)/lib -lmpi|' wmake/rules/linux64Icc/mplibINTELMPI
+
+    sed -i 's/\bisnan\b/std::isnan/g' src/conversion/ensight/part/ensightPart.C src/conversion/ensight/part/ensightPartIO.C
+
+    #fix aa flex error form ansys2foam, etc
+    find src applications -name "*.L" -type f | xargs sed -i -e 's=\(YY\_FLEX\_SUBMINOR\_VERSION\)=YY_FLEX_MINOR_VERSION < 6 \&\& \1='
+
+    cd /opt/OpenFOAM/ThirdParty-2.4.x
+
+    sed -i '6s|^AR\s*=.*|AR		= icc|;
+    9s|^CCS\s*=.*|CCS		= icc|;
+    10s|^CCP\s*=.*|CCP		= mpiicc|;
+    11s|^CCD\s*=.*|CCD		= mpiicc|;
+    12s|^CFLAGS\s*=.*|CFLAGS = $(WM_CFLAGS) -O3 -fPIC -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME -Drestrict=__restrict -I$(MPI_ROOT)/include -L$(MPI_ROOT)/lib|' etc/wmakeFiles/scotch/Makefile.inc.i686_pc_linux2.shlib-OpenFOAM-64
+            
+
+    #tar zxf OpenFOAM-2.4.0.tgz && tar zxf ThirdParty-2.4.0.tgz
+    #module load gcc/11.2.0
+    #module load boost/1.75.0/intel-2021.5.0
+    #module load boost/1.77.0/gcc-11.2.0
+    
+    export USER=opt
+    export HOME=/opt
+
+    export MPI_ROOT=$I_MPI_ROOT
+    export FOAM_INST_DIR=/opt/OpenFOAM
+    cd $FOAM_INST_DIR/OpenFOAM-2.4.x
+    foamDotFile="$FOAM_INST_DIR/OpenFOAM-2.4.x/etc/bashrc"
+    source $foamDotFile
+
+    export WM_NCOMPPROCS=24
+
+    cd /opt/OpenFOAM/OpenFOAM-2.4.x
+    ./Allwmake -j $WM_NCOMPPROCS > log.make 2>&1
+
+    # Clean up
+    yum clean all
+    rm -rf /var/cache/yum
+
+%environment
+    #export PATH="/opt/MrBayes/src:$PATH"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/linux/lib:$LD_LIBRARY_PATH"
+    export MPIRUN="/opt/intel/oneapi/mpi/latest/bin/mpirun"
+
+%runscript
+    echo "OpenFOAM 2.4"
+    exec "$@"
+#
+#%test
+#    echo "Testing MPI-enabled MrBayes..."
+#    mpirun -np 2 mb -h
+
