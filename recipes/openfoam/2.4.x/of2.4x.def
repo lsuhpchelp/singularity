@@ -76,8 +76,8 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     #module load boost/1.75.0/intel-2021.5.0
     #module load boost/1.77.0/gcc-11.2.0
     
-    export USER=opt
-    export HOME=/opt
+    #export USER=opt
+    #export HOME=/opt
 
     export MPI_ROOT=$I_MPI_ROOT
     export FOAM_INST_DIR=/opt/OpenFOAM
@@ -101,7 +101,17 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     export MPIRUN="/opt/intel/oneapi/mpi/latest/bin/mpirun"
 
 %runscript
-    echo "OpenFOAM 2.4"
+    source /etc/profile.d/modules.sh
+    export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    #module purge
+    module load icc mpi
+    export MPI_ROOT=$I_MPI_ROOT
+    export FOAM_INST_DIR=/opt/OpenFOAM
+    cd $FOAM_INST_DIR/OpenFOAM-2.4.x
+    foamDotFile="$FOAM_INST_DIR/OpenFOAM-2.4.x/etc/bashrc"
+    source $foamDotFile
+    #echo "OpenFOAM 2.4"
     exec "$@"
 #
 #%test
