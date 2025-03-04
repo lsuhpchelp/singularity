@@ -88,7 +88,8 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     export WM_NCOMPPROCS=24
 
     cd /opt/OpenFOAM/OpenFOAM-2.4.x
-    ./Allwmake -j $WM_NCOMPPROCS > log.make 2>&1
+    #./Allwmake -j $WM_NCOMPPROCS > log.make 2>&1
+    ./Allwmake > log.make 2>&1
 
     # Clean up
     yum clean all
