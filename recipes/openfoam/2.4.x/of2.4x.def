@@ -16,7 +16,7 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     #yum groupinstall -y "Development Tools"
     dnf -y install wget git curl-devel environment-modules m4 diffutils
     dnf -y install git make automake libtool wget
-    dnf -y install flex bison boost-devel libmpc-devel
+    dnf -y install flex bison boost-devel libmpc-devel glibc-devel
 
     # Set up MPI environment
     bash /opt/intel/oneapi/modulefiles-setup.sh
@@ -24,7 +24,7 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
     export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
     module purge
-    module load icc mpi
+    module load icc mpi mkl
     source /opt/intel/oneapi/setvars.sh
 
     # Clone 
@@ -69,13 +69,6 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     10s|^CCP\s*=.*|CCP		= mpiicc|;
     11s|^CCD\s*=.*|CCD		= mpiicc|;
     12s|^CFLAGS\s*=.*|CFLAGS = $(WM_CFLAGS) -O3 -fPIC -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME -Drestrict=__restrict -I$(MPI_ROOT)/include -L$(MPI_ROOT)/lib|' etc/wmakeFiles/scotch/Makefile.inc.i686_pc_linux2.shlib-OpenFOAM-64
-            
-
-    #tar zxf OpenFOAM-2.4.0.tgz && tar zxf ThirdParty-2.4.0.tgz
-    #module load gcc/11.2.0
-    #module load boost/1.75.0/intel-2021.5.0
-    #module load boost/1.77.0/gcc-11.2.0
-    
     #export USER=opt
     #export HOME=/opt
 
@@ -86,9 +79,23 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     source $foamDotFile
 
     export WM_NCOMPPROCS=24
+    cd /opt/OpenFOAM/ThirdParty-2.4.x
+             
+    # need cmake-2.8.12 to work with CGAL-4.6 build
+    wget https://github.com/Kitware/CMake/archive/refs/tags/v2.8.12.2.tar.gz
+    tar zxf v2.8.12.2.tar.gz
+    mv CMake-2.8.12.2 cmake-2.8.12.1
+    ./makeCmake 
+
+    # for CGAL-4.6
+    wget https://github.com/CGAL/cgal/archive/refs/tags/releases/CGAL-4.6.tar.gz
+    tar zxf CGAL-4.6.tar.gz
+    mv cgal-releases-CGAL-4.6 CGAL-4.6
+    # cmake that comes with the base image version is too high for CGAL-4.6
+    export PATH="/opt/OpenFOAM/ThirdParty-2.4.x/platforms/linux64Icc/cmake-2.8.12.1/bin/":$PATH
+    ./makeCGAL
 
     cd /opt/OpenFOAM/OpenFOAM-2.4.x
-    #./Allwmake -j $WM_NCOMPPROCS > log.make 2>&1
     ./Allwmake > log.make 2>&1
 
     # Clean up
