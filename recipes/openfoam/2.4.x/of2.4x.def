@@ -120,6 +120,9 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     make 
     make install
 
+    # for SOWFA
+    
+
     # Clean up
     yum clean all
     rm -rf /var/cache/yum
