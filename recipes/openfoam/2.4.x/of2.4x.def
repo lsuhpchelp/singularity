@@ -136,14 +136,16 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     source /etc/profile.d/modules.sh
     export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
     export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
-    #module purge
-    module load icc mpi
+    module load icc mpi mkl
     export MPI_ROOT=$I_MPI_ROOT
     export FOAM_INST_DIR=/opt/OpenFOAM
     cd $FOAM_INST_DIR/OpenFOAM-2.4.x
     foamDotFile="$FOAM_INST_DIR/OpenFOAM-2.4.x/etc/bashrc"
     source $foamDotFile
-    #echo "OpenFOAM 2.4"
+    export OPENFAST_DIR="/opt/OpenFAST/install"
+    export SOWFA_DIR="/opt/SOWFA/"
+    export LD_LIBRARY_PATH=${OPENFAST_DIR}/lib:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=${SOWFA_DIR}/lib/${WM_OPTIONS}/:${LD_LIBRARY_PATH}
     exec "$@"
 #
 #%test
