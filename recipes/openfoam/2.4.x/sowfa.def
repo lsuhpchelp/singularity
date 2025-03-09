@@ -36,7 +36,7 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     #mv ./ThirdParty-2.4.0.tgz /opt/OpenFOAM
     cd /opt/OpenFOAM
 
-    # from notes: https://gist.github.com/BinWang0213/ad7d225b20adced4f563c9d45685bee4
+    # ref: from notes: https://gist.github.com/BinWang0213/ad7d225b20adced4f563c9d45685bee4
     git clone https://github.com/OpenFOAM/OpenFOAM-2.4.x.git
     git clone https://github.com/OpenFOAM/ThirdParty-2.4.x.git
 
@@ -101,6 +101,7 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     ./Allwmake > log.make 2>&1
 
     # for OpenFAST
+    # ref: https://github.com/pablo-benito/SOWFA-installation?tab=readme-ov-file#openfast-compilation
     cd /opt
     git clone https://github.com/OpenFAST/OpenFAST.git -b v2.3.0
     cd OpenFAST
@@ -121,6 +122,7 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     make install
 
     # for SOWFA
+    # ref: https://github.com/pablo-benito/SOWFA-installation?tab=readme-ov-file#openfast-compilation
     cd /opt/
     git clone https://github.com/NREL/SOWFA.git
     cd SOWFA/
