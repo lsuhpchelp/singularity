@@ -1,11 +1,6 @@
 BootStrap: docker
 From: intel/oneapi-hpckit:2021.4-devel-centos8
 
-#%files
-    #./OpenFOAM-2.4.0.tgz  /opt
-    #./ThirdParty-2.4.0.tgz /opt
-
-
 %post
     # Update and install required dependencies
     cd /etc/yum.repos.d/
@@ -31,9 +26,6 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
 
     # Clone 
     mkdir -p /opt/OpenFOAM
-    cd /opt
-    #mv ./OpenFOAM-2.4.0.tgz /opt/OpenFOAM
-    #mv ./ThirdParty-2.4.0.tgz /opt/OpenFOAM
     cd /opt/OpenFOAM
 
     # ref: from notes: https://gist.github.com/BinWang0213/ad7d225b20adced4f563c9d45685bee4
@@ -71,8 +63,6 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     10s|^CCP\s*=.*|CCP		= mpiicc|;
     11s|^CCD\s*=.*|CCD		= mpiicc|;
     12s|^CFLAGS\s*=.*|CFLAGS = $(WM_CFLAGS) -O3 -fPIC -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME -Drestrict=__restrict -I$(MPI_ROOT)/include -L$(MPI_ROOT)/lib|' etc/wmakeFiles/scotch/Makefile.inc.i686_pc_linux2.shlib-OpenFOAM-64
-    #export USER=opt
-    #export HOME=/opt
 
     export MPI_ROOT=$I_MPI_ROOT
     export FOAM_INST_DIR=/opt/OpenFOAM
@@ -163,9 +153,4 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     export LD_LIBRARY_PATH=${SOWFA_DIR}/lib/${WM_OPTIONS}/:${LD_LIBRARY_PATH}
     export PATH=${SOWFA_DIR}/applications/bin/${WM_OPTIONS}:$PATH
     exec "$@"
-#
-#%test
-#    echo "Testing MPI-enabled MrBayes..."
-#    mpirun -np 2 mb -h
-
 
