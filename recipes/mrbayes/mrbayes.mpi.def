@@ -1,0 +1,66 @@
+BootStrap: docker
+From: intel/oneapi-hpckit:2021.4-devel-centos8
+
+%post
+    # Update and install required dependencies
+    cd /etc/yum.repos.d/
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+    # Set up MPI environment
+    dnf -y install wget git curl-devel environment-modules m4 diffutils
+    dnf -y install git make automake libtool wget
+    dnf -y install flex boost-devel libmpc-devel
+    
+    # Set up MPI environment
+    source /etc/profile.d/modules.sh
+    bash /opt/intel/oneapi/modulefiles-setup.sh
+
+    export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    module purge
+    module load icc mpi
+    source /opt/intel/oneapi/setvars.sh
+
+    cd /opt
+    git clone --branch=v3.1.2 --depth=1 'https://github.com/beagle-dev/beagle-lib.git'
+    cd beagle-lib
+    ./autogen.sh
+    ./configure CC=icc CXX=icpc --without-jdk LDFLAGS=-Wl,-rpath=/usr/local/lib
+    make
+    make install
+
+    # Clone MrBayes repository
+    cd /opt
+    git clone --recursive https://github.com/NBISweden/MrBayes.git
+    cd MrBayes
+
+    # Bootstrap and configure
+    export MPICC=$(which mpiicc) 
+    ./configure --with-mpi
+
+    # Compile and install
+    make -j$(nproc)
+    make install
+
+    # Create bind points for HPC environment
+    mkdir -p /project /work /usr/lib64
+
+    # Clean up
+    yum clean all
+    rm -rf /var/cache/yum
+
+%environment
+    export PATH="/opt/MrBayes/src:$PATH"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/linux/lib:$LD_LIBRARY_PATH"
+    export MPIRUN="/opt/intel/oneapi/mpi/latest/bin/mpirun"
+
+%runscript
+    source /etc/profile.d/modules.sh
+    export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
+    export PATH="/usr/local/bin:$PATH"
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    module purge
+    module load icc mpi
+    exec "$@"
+
