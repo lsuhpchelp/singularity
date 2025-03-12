@@ -7,12 +7,12 @@ From: intel/oneapi-hpckit:2021.4-devel-centos8
     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 
-    # Set up MPI environment
+    # Set up basic environment
     dnf -y install wget git curl-devel environment-modules m4 diffutils
     dnf -y install git make automake libtool wget
     dnf -y install flex boost-devel libmpc-devel #eigen3-devel
     
-    # Set up MPI environment
+    # Set up environmental modules and oneapi keys
     source /etc/profile.d/modules.sh
     bash /opt/intel/oneapi/modulefiles-setup.sh
 
