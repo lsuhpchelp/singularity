@@ -1,0 +1,62 @@
+Bootstrap: docker
+From: rockylinux:9
+
+%post
+    # Update the package manager and install Development Tools
+    dnf -y update
+    dnf -y groupinstall "Development Tools"
+    dnf -y install epel-release
+
+    # Enable the CRB repository for additional packages
+
+    dnf -y install dnf-plugins-core
+    dnf config-manager --set-enabled crb
+
+    # Install required dependencies
+    dnf -y install \
+        gcc \
+        gcc-c++ \
+        make \
+        wget \
+        netcdf-devel \
+        hdf5-devel \
+        libcurl-devel \
+        gsl-devel \
+        bison \
+        flex \
+        zlib-devel
+
+    # Set environment variables for NetCDF and HDF5
+    export NETCDF_INC=/usr/include
+    export NETCDF_LIB=/usr/lib64
+    export HDF5_INC=/usr/include
+    export HDF5_LIB=/usr/lib64
+
+    # Download and extract NCO source code
+    cd /usr/local/src
+    wget https://github.com/nco/nco/archive/refs/tags/4.9.8.tar.gz
+    tar -xzf 4.9.8.tar.gz
+    cd nco-4.9.8
+
+    # Configure, compile, and install NCO
+    ./configure --prefix=/usr/local
+    make -j$(nproc)
+    make install
+
+    # Clean up
+    cd /
+    rm -rf /usr/local/src/nco-4.9.8
+    rm /usr/local/src/4.9.8.tar.gz
+
+%environment
+    # Set environment variables for runtime
+    export PATH=/usr/local/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export NETCDF_INC=/usr/include
+    export NETCDF_LIB=/usr/lib64
+    export HDF5_INC=/usr/include
+    export HDF5_LIB=/usr/lib64
+
+%runscript
+    exec "$@"
+
