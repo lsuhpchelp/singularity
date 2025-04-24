@@ -1,0 +1,28 @@
+Bootstrap: localimage
+From: of2212.sif
+Stage: runtime
+
+%post
+    apt update
+    apt install -y git
+    #export HOME=/opt
+    #export USER=opt
+    # source /usr/lib/openfoam/openfoam2212/etc/bashrc
+    
+    cd /opt
+    #cd /home/sudofoam
+    git clone https://github.com/phicau/olaFlow.git olaFlow
+    cd olaFlow
+    # fix for the error while compiling "pEqn.H:13:18: fatal error: interpolatedFaces.H: No such file or directory"
+    # https://www.cfd-online.com/Forums/openfoam-community-contributions/196860-olaflow-thread-23.html
+    wget https://develop.openfoam.com/Development/openfoam/-/raw/OpenFOAM-v2206/applications/solvers/incompressible/pimpleFoam/overPimpleDyMFoam/interpolatedFaces.H \
+    -P solvers/olaFlowOFv_com_latest/overOlaDyMFlow
+    ./allMake
+
+%environment
+    #export HOME=/opt
+    #export USER=opt
+    #source /usr/lib/openfoam/openfoam2212/etc/bashrc
+
+%runscript
+    exec /openfoam/run "$@"
