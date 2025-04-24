@@ -13,7 +13,12 @@ singularity build pmi2-openmpi4.1.2.sif pmi2-openmpi4.1.2.def
 singularity build pmi2-openfoam-v2212.sif pmi2-openfoam2212.def
 ```
 
-#### Step 3 (Optional). Build third-party solvers based on the pmi2-openfoam-v2212.sif
+#### Step 3 (Optional). Build foamMooring (https://gitlab.com/hfchen20/foamMooring.git) and olaFlow (https://github.com/phicau/olaFlow.git) based on pmi2-openfoam-v2212.sif:
+```
+singularity build of.foammooring.olaflow.sif pmi2-openfoam2212.foamMooring.olaflow.def
+```
+
+#### Step 4 (Optional). Build third-party solvers based on the pmi2-openfoam-v2212.sif
 Build sedFoam on top of pmi2-openfoam-v2212.sif, we need to start from a sandbox, because sourcing /usr/lib/openfoam/openfoam2212/etc/bashrc will result in an error from singularity build command, so we workaround this by using the interactive shell
 ```
 singularity build --sandbox pmi2-sedFoam pmi2-openfoam2212.def
