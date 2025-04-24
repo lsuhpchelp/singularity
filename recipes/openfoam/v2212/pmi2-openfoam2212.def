@@ -23,5 +23,10 @@ Stage: runtime
     echo 'export MPI_ARCH_PATH=/opt/openmpi/4.1.2' > \
       $(bash /openfoam/assets/query.sh -show-prefix)/etc/config.sh/prefs.sys-openmpi
 
+%environment
+    export HOME=/opt
+    export USER=opt
+    source /usr/lib/openfoam/openfoam2212/etc/bashrc
+
 %runscript
     exec /openfoam/run "$@"
