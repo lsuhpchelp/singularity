@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: of2212.sif
+From: pmi2-openfoam-v2212.sif
 Stage: runtime
 
 %post
