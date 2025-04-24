@@ -3,14 +3,25 @@ From: of2212.sif
 Stage: runtime
 
 %post
+    export DEBIAN_FRONTEND=noninteractive
     apt update
-    apt install -y git
-    #export HOME=/opt
-    #export USER=opt
-    # source /usr/lib/openfoam/openfoam2212/etc/bashrc
+    apt install -y git cmake
     
+    # for foamMooring
+    # https://hfchen20.gitlab.io/foamMooring/installation/#prerequisites
+    apt install -y libvtk9-dev
+    apt install -y liblapack3
+    apt install -y liblapack-dev liblapacke-dev
+
+    # WM_PROJECT_USER_DIR will be in /opt
+    mkdir -p $WM_PROJECT_USER_DIR
+    cd $WM_PROJECT_USER_DIR
+    git clone https://gitlab.com/hfchen20/foamMooring.git
+    cd foamMooring
+    ./Allwmake
+
+    # for olaFlow
     cd /opt
-    #cd /home/sudofoam
     git clone https://github.com/phicau/olaFlow.git olaFlow
     cd olaFlow
     # fix for the error while compiling "pEqn.H:13:18: fatal error: interpolatedFaces.H: No such file or directory"
@@ -26,3 +37,4 @@ Stage: runtime
 
 %runscript
     exec /openfoam/run "$@"
+
