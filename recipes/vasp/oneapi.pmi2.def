@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: intel/oneapi-hpckit:2024.0.1-devel-rockylinux9
+
+%labels
+Author fchen14@lsu.edu
+
+%files
+
+%post
+dnf install -y epel-release
+dnf config-manager --set-enabled crb  # Formerly "PowerTools" in EL9
+dnf install -y wget hwloc slurm slurm-devel
+dnf install -y environment-modules
+dnf install -y rsync
+# https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
+# need to source the line or module command wont be available
+source /etc/profile.d/modules.sh
+
+dnf install -y 'dnf-command(config-manager)'
+dnf config-manager --add-repo https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+dnf install -y nvhpc-cuda-multi-24.3
+
+%environment
+
+%runscript
+exec "$@"
+
