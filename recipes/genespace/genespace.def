@@ -1,0 +1,41 @@
+Bootstrap: localimage
+# We start from a local image using receipe:
+# https://github.com/lsuhpchelp/singularity/blob/main/recipes/r/4.4.1/singularity.def
+From: /project/containers/images/r-4.4.1.sif
+
+%post
+    echo "Container extended from local image"
+    yum install -y git 
+    # install orthofinder via conda
+    #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py313_25.5.1-0-Linux-x86_64.sh
+    bash Miniconda3-py313_25.5.1-0-Linux-x86_64.sh -b -p /opt/conda
+    export PATH=/opt/conda/bin:$PATH
+    source /opt/conda/etc/profile.d/conda.sh
+    conda activate base
+    conda create --prefix=/opt/orthofinder
+    conda activate /opt/orthofinder
+    conda install -c bioconda orthofinder=2.5.5
+    # install MCScanX
+    cd /opt
+    git clone https://github.com/wyp1125/MCScanX
+    cd MCScanX
+    make
+    # install GENESPACE
+    Rscript -e 'BiocManager::install(c("Biostrings", "rtracklayer"))'
+    Rscript -e 'devtools::install_github("jtlovell/GENESPACE")'
+    
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export PATH=/opt/MCScanX:$PATH
+    source /opt/conda/etc/profile.d/conda.sh
+    conda activate /opt/orthofinder
+
+%runscript
+    exec "$@"
+
+%labels
+    Maintainer YourName
+    Version extended
+
