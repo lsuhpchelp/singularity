@@ -9,3 +9,16 @@ From: teambraker/braker3:v3.0.7.4
 Maintainer      Jason Li
 Version         3.0.8
 Description     BRAKER is a pipeline for fully automated prediction of protein coding gene structures with GeneMark-ES/ET/EP/ETP and AUGUSTUS in novel eukaryotic genomes.
+
+
+################################################################################
+%environment
+################################################################################
+
+# Before every run, check whether Augustus config folder exist in user's /work directory. 
+#   If not, copy it from container
+mkdir -p "/work/$(basename $HOME)/.augustus/"
+cp -nr "/opt/Augustus/config" "/work/$(basename $HOME)/.augustus/"
+
+# Set $AUGUSTUS_CONFIG_PATH
+export AUGUSTUS_CONFIG_PATH="/work/$(basename $HOME)/.augustus/config"
