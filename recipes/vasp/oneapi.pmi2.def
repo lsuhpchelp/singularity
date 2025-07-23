@@ -13,6 +13,7 @@ dnf install -y wget hwloc slurm slurm-devel
 dnf install -y environment-modules
 dnf install -y rsync
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
+
 # need to source the line or module command wont be available
 source /etc/profile.d/modules.sh
 
@@ -21,6 +22,7 @@ dnf config-manager --add-repo https://developer.download.nvidia.com/hpc-sdk/rhel
 dnf install -y nvhpc-cuda-multi-24.3
 
 %environment
+
 
 %runscript
 exec "$@"
