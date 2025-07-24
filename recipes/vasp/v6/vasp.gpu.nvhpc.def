@@ -12,7 +12,9 @@ Author fchen14@lsu.edu
 
 dnf install -y epel-release
 dnf config-manager --set-enabled crb  # Formerly "PowerTools" in EL9
+# for pmi2 support, we need hwloc slurm slurm-devel
 dnf install -y wget hwloc slurm slurm-devel
+# environment-modules to work with oneapi-hpckit
 dnf install -y environment-modules
 dnf install -y rsync
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
