@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: trinityrnaseq/trinotate:4.0.2
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         4.0.2
+Description     Trinotate is a comprehensive annotation suite designed for automatic functional annotation of transcriptomes, particularly de novo assembled transcriptomes, from model or non-model organisms.
+
+
+################################################################################
+%environment
+################################################################################
+
+export PATH="$PATH:/usr/local/src/Trinotate"
