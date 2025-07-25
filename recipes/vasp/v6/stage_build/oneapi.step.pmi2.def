@@ -7,7 +7,7 @@ Author fchen14@lsu.edu
 
 %files
 
-  vasp.6.5.1.tgz                  /opt/
+../src/vasp.6.5.1.tgz                  /opt/
 
 %post
 dnf install -y rsync
