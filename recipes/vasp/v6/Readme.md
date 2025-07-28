@@ -29,7 +29,7 @@ module load vasp6/6.5.1-cpu
 SECONDS=0
 export SINGULARITYENV_OMP_NUM_THREADS=1
 # This command uses 128 MPI processes on two nodes
-srun -n64 vasp_std
+srun -n128 vasp_std
 echo "took $SECONDS sec."
 ```
 
