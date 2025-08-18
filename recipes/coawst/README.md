@@ -36,9 +36,11 @@ singularity shell -B /work,/project /project/container/images/coawst.env.sif
 ```
 
 ### Step 2. Clone the COAWST source code, note that the below commands runs inside the container, not on the host system
+```
 cd /project/$USER/
 git clone https://code.usgs.gov/coawstmodel/COAWST.git
 cd COAWST
+```
 
 ### Step 3. Modify the build script 
 
@@ -111,12 +113,31 @@ Please refer to the official COAWST User Manual for details.
 
 On LONI QB4 compute nodes, this example run typically takes 800–900 seconds.
 
-4. Summary
+## 4. Summary
 
-Use the provided image at /project/container/images/coawst.env.sif — no need to build it yourself.
+- Use the provided image at `/project/container/images/coawst.env.sif` — no need to build it yourself.  
+- All dependencies (**Intel MPI, NetCDF, MCT**) are already included.  
+- You must **compile your own COAWST executable (`coawstM`)** in your project directory (e.g., `/project/$USER/COAWST`).  
+- Run jobs through **Slurm**, binding `/work` and `/project` into the container when executing.  
 
-All dependencies (Intel MPI, NetCDF, MCT) are included.
+---
 
-You must compile your own COAWST executable (coawstM) in your project directory.
+### 🚀 Quick Start
 
-Run jobs through Slurm, binding /work and /project into the container.
+```bash
+# 1. Enter the container
+singularity shell -B /work,/project /project/container/images/coawst.env.sif
+
+# 2. Get COAWST source
+cd /project/$USER
+git clone https://code.usgs.gov/coawstmodel/COAWST.git
+cd COAWST
+
+# 3. Edit build_coawst.sh (set MY_ROOT_DIR and use ifort), then build
+./build_coawst.sh
+
+# 4. Run example test case (Inlet_test)
+srun -n32 singularity exec /project/container/images/coawst.env.sif \
+    /project/$USER/COAWST/coawstM \
+    Projects/Inlet_test/Coupled/coupling_inlet_test.in
+
