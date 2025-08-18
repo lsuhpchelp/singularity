@@ -29,10 +29,31 @@ The pre-built image is already available at:
 
 ## 2. Compiling `coawstM`
 
-### Step 1. Enter the container
+### Step 1. Start an interactive job and enter the coawst.env.sif container image
 
 ```bash
-singularity shell -B /work,/project /project/container/images/coawst.env.sif
+[fchen14@qbd4 coawst]$ salloc -A loni_loniadmin1 -N1 -p workq -t 8:00:00
+salloc: 865767.93 SUs available in loni_loniadmin1
+salloc: 512.00 SUs estimated for this job.
+salloc: Pending job allocation 345473
+salloc: lua: Submitted job 345473
+salloc: job 345473 queued and waiting for resources
+salloc: job 345473 has been allocated resources
+salloc: Granted job allocation 345473
+salloc: Waiting for resource configuration
+salloc: Nodes qbd354 are ready for job
+[fchen14@qbd354 coawst]$ singularity shell -B /work,/project /project/containers/images/coawst.env.sif
+INFO:    Mounting image with FUSE.
+WARNING: terminal is not fully functional
+-  (press RETURN)Loading icc version 2021.4.0
+Loading compiler-rt version 2021.4.0
+
+Loading icc/latest
+  Loading requirement: compiler-rt/latest
+
+Loading mpi version 2021.4.0
+Singularity> cd /project/fchen14/singularity/recipes/coawst/
+
 ```
 
 ### Step 2. Clone the COAWST source code, note that the below commands runs inside the container, not on the host system
