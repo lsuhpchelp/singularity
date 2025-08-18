@@ -55,16 +55,8 @@ sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /
 
 dnf -y install wget git libcurl-devel libxml2-devel environment-modules m4 diffutils
 
-#bash /opt/intel/oneapi/modulefiles-setup.sh
-#export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
-#export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
-
-#dnf install -y epel-release
-#dnf config-manager --set-enabled crb  # Formerly "PowerTools" in EL9
-#dnf install -y wget hwloc slurm slurm-devel libxml2
-#dnf install -y environment-modules
 dnf install -y libxml2-devel libcurl-devel
-dnf install -y rsync
+dnf install -y rsync cmake
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
 
 # need to source the line or module command wont be available
@@ -77,18 +69,18 @@ mkdir /opt/packages
 
 #Install cmake
 
-cd /opt/packages
-wget https://github.com/Kitware/CMake/releases/download/v3.26.3/cmake-3.26.3-linux-x86_64.tar.gz
-tar zxf cmake-3.26.3-linux-x86_64.tar.gz
+#cd /opt/packages
+#wget https://github.com/Kitware/CMake/releases/download/v3.26.3/cmake-3.26.3-linux-x86_64.tar.gz
+#tar zxf cmake-3.26.3-linux-x86_64.tar.gz
 
 # install zlib
 
-cd /opt/packages
-wget https://www.zlib.net/fossils/zlib-1.2.13.tar.gz
-tar -xvf zlib-1.2.13.tar.gz && rm zlib-1.2.13.tar.gz
-cd zlib-1.2.13
-./configure --prefix=/usr/local
-make -j`nproc` && make install
+#cd /opt/packages
+#wget https://www.zlib.net/fossils/zlib-1.2.13.tar.gz
+#tar -xvf zlib-1.2.13.tar.gz && rm zlib-1.2.13.tar.gz
+#cd zlib-1.2.13
+#./configure --prefix=/usr/local
+#make -j`nproc` && make install
 
 # install HDF5
 
@@ -128,6 +120,9 @@ mkdir build
 ./configure CC=icc CXX=icpc FC=ifort MPIFC=mpiifort --prefix=/usr/local
 make -j 4
 make install
+
+# make a mount point for COAWST
+mkdir /opt/COAWST
 
 ## Build COAWST
 #
