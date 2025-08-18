@@ -29,7 +29,34 @@ The pre-built image is already available at:
 
 ## 2. Compiling `coawstM`
 
-### Step 1. Start an interactive job and enter the coawst.env.sif container image
+### Step 1. Clone the COAWST source code, note that the below commands runs inside the container, not on the host system
+```
+cd /project/$USER/
+git clone https://code.usgs.gov/coawstmodel/COAWST.git
+cd COAWST
+```
+
+### Step 2. Modify the build script 
+
+Edit build_coawst.sh under the COAWST directory as follows:
+
+Line 141
+Change to:
+
+```
+export MY_ROOT_DIR=$PWD
+# or equivalently:
+# export MY_ROOT_DIR=/project/$USER/COAWST
+```
+
+Line 217–218
+Switch compiler to Intel Fortran:
+```
+export FORT=ifort
+# export FORT=gfortran
+```
+
+### Step 3. Start an interactive job and enter the coawst.env.sif container image
 
 ```bash
 [fchen14@qbd4 coawst]$ salloc -A loni_loniadmin1 -N1 -p workq -t 8:00:00
@@ -52,43 +79,33 @@ Loading icc/latest
   Loading requirement: compiler-rt/latest
 
 Loading mpi version 2021.4.0
-Singularity> cd /project/fchen14/singularity/recipes/coawst/
-
+Singularity> pwd
+/project/fchen14/singularity/recipes/coawst/COAWST
 ```
 
-### Step 2. Clone the COAWST source code, note that the below commands runs inside the container, not on the host system
+### Step 4. Build `coawstM` inside the singularity image
+
+```bash
+Singularity> ./build_coawst.sh
+$gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
+rm -f -r core *.ipo ./Build_roms /home/fchen14/make_macros.mk
+$gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
+cp -f /usr/local/include/netcdf.mod ./Build_roms
+cp -f /usr/local/include/typesizes.mod ./Build_roms
+...lots of output...
+ranlib Build_roms/libROMS.a
+/opt/intel/oneapi/mpi/2021.4.0/bin/mpiifort -fp-model precise -fc=ifort -heap-arrays -ip -O3 -traceback -assume byterecl -I/project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/mod -I/usr/local/include  ./Build_roms/esmf_atm.o ./Build_roms/propagator.o ./Build_roms/roms_kernel.o ./Build_roms/master.o ./Build_roms/banihashemi.o ./Build_roms/get_wrf_moving_grids.o ./Build_roms/esmf_data.o ./Build_roms/esmf_wav.o ./Build_roms/get_numswan_grids.o ./Build_roms/esmf_ice.o ./Build_roms/mct_coupler_utils.o ./Build_roms/read_model_inputs.o ./Build_roms/ocean_coupler.o ./Build_roms/read_coawst_par.o ./Build_roms/get_numww3_grids.o ./Build_roms/esmf_esm.o ./Build_roms/coupler.o ./Build_roms/esmf_roms.o ./Build_roms/ww3_iounits.o ./Build_roms/dpolft.o ./Build_roms/mod_esmf_esm.o -o coawstM -L./Build_roms -lROMS  -L/usr/local/lib -lnetcdff -lnetcdf -lnetcdf -lm /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mct_coupler_params.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mod_coupler_iounits.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/get_sparse_matrix.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/lib/libswan41.45.a -L/usr/local/lib -lmct -lmpeu
+rm -f -r /home/fchen14/make_macros.mk
+Singularity>
 ```
-cd /project/$USER/
-git clone https://code.usgs.gov/coawstmodel/COAWST.git
-cd COAWST
-```
-
-### Step 3. Modify the build script 
-
-Edit build_coawst.sh under the COAWST directory as follows:
-
-Line 141
-Change to:
-
-```
-export MY_ROOT_DIR=$PWD
-# or equivalently:
-# export MY_ROOT_DIR=/project/$USER/COAWST
-```
-
-Line 217–218
-Switch compiler to Intel Fortran:
-```
-export FORT=ifort
-# export FORT=gfortran
-```
-
-### Step 4. Build COAWST
-./build_coawst.sh
-
 
 ⏳ The build process typically takes a few minutes.
-If successful, a `coawstM` executable will be created in the current directory.
+If successful, a `coawstM` executable will be created in the current source directory.
+
+```bash
+Singularity> ls -latrh coawstM
+-rwxr-xr-x 1 fchen14 nobody 18M Aug 18 16:54 coawstM
+```
 
 ## 3. Running coawstM
 
