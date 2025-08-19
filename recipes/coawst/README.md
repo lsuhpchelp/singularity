@@ -96,7 +96,7 @@ cp -f /usr/local/include/typesizes.mod ./Build_roms
     ...lots of output...
 ranlib Build_roms/libROMS.a
 /opt/intel/oneapi/mpi/2021.4.0/bin/mpiifort -fp-model precise -fc=ifort ...
-/project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/lib/libswan41.45.a -L/usr/local/lib -lmct -lmpeu
+.../libswan41.45.a -L/usr/local/lib -lmct -lmpeu
 rm -f -r /home/fchen14/make_macros.mk
 Singularity>
 ```
@@ -141,6 +141,12 @@ srun -n2 singularity exec $SIMG \
     /project/$USER/COAWST/coawstM \
     Projects/Inlet_test/Coupled/coupling_inlet_test.in
 echo "Elapsed time: $SECONDS sec"
+```
+
+Then submit the job script on the login node:
+
+```bash
+[fchen14@qbd2 COAWST]$ sbatch run_coawst_example.sh
 ```
 
 ℹ️ Notes:
