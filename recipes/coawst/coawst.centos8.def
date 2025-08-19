@@ -38,14 +38,9 @@ export MCT_LIBDIR=/usr/local/lib
 
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
-#bash /opt/intel/oneapi/modulefiles-setup.sh
-#export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
-
-#. /etc/profile.d/modules.sh
-#export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
-#module load icc mpi
-
-files
+. /etc/profile.d/modules.sh
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load icc mpi
 
 %post
 
