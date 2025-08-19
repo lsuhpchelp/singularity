@@ -1,6 +1,6 @@
 # COAWST Singularity Environment Usage Guide
 
-Using a Singularity container ensures that the COAWST environment is **self-contained and portable**, so your workflows remain stable and reproducible **regardless of cluster Operating System updates or scheduler (e.g., Slurm) upgrades**. This means you can always build and run COAWST in a consistent environment across different HPC systems. This document explains how to use the pre-built **Singularity image** `coawst.env.sif` for compiling and running COAWST. The image provides a **ready-to-use environment** with all required dependencies pre-installed. Users do **not** need to build this image themselves.
+Using a Singularity container ensures that the COAWST environment is **self-contained and portable**, so your workflows remain stable and reproducible **regardless of cluster Operating System (e.g., RHEL 7 to RHEL 8) updates or scheduler (e.g., Slurm) upgrades**. This means you can always build and run COAWST in a consistent environment across different HPC systems. This document explains how to use the pre-built **Singularity image** `coawst.env.sif` for compiling and running COAWST. The image provides a **ready-to-use environment** with all required dependencies pre-installed. Users do **not** need to build this image themselves.
 
 ---
 
