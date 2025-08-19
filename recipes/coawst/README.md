@@ -1,8 +1,6 @@
 # COAWST Singularity Environment Usage Guide
 
-This document explains how to use the pre-built **Singularity image** `coawst.env.sif` for compiling and running COAWST.  
-
-The image provides a **ready-to-use environment** with all required dependencies pre-installed. Users do **not** need to build this image themselves.
+Using a Singularity container ensures that the COAWST environment is **self-contained and portable**, so your workflows remain stable and reproducible **regardless of cluster Operating System updates or scheduler (e.g., Slurm) upgrades**. This means you can always build and run COAWST in a consistent environment across different HPC systems. This document explains how to use the pre-built **Singularity image** `coawst.env.sif` for compiling and running COAWST. The image provides a **ready-to-use environment** with all required dependencies pre-installed. Users do **not** need to build this image themselves.
 
 ---
 
@@ -59,7 +57,7 @@ export FORT=ifort
 ### Step 3. Start an interactive job and enter the coawst.env.sif container image
 
 ```bash
-[fchen14@qbd4 coawst]$ salloc -A loni_loniadmin1 -N1 -p workq -t 8:00:00
+[fchen14@qbd2 coawst]$ salloc -A loni_loniadmin1 -N1 -p workq -t 8:00:00
 salloc: 865767.93 SUs available in loni_loniadmin1
 salloc: 512.00 SUs estimated for this job.
 salloc: Pending job allocation 345473
@@ -69,6 +67,7 @@ salloc: job 345473 has been allocated resources
 salloc: Granted job allocation 345473
 salloc: Waiting for resource configuration
 salloc: Nodes qbd354 are ready for job
+# Below command enters the coawst image environment
 [fchen14@qbd354 coawst]$ singularity shell -B /work,/project /project/containers/images/coawst.env.sif
 INFO:    Mounting image with FUSE.
 WARNING: terminal is not fully functional
