@@ -143,7 +143,7 @@ echo "Elapsed time: $SECONDS sec"
 ℹ️ Notes:
 
 The default Inlet_test example is configured for 2 MPI processes.
-To use more processes (e.g., 32 as in the script above), you must modify the input files accordingly.
+To use more processes (e.g., 32), you must modify the input files accordingly.
 Please refer to the official COAWST User Manual for details.
 
 On LONI QB4 compute nodes, this example run typically takes 800 - 900 seconds using 2 MPI processes (`srun -n2`).
