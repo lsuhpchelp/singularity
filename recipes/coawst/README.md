@@ -6,7 +6,7 @@ The image provides a **ready-to-use environment** with all required dependencies
 
 ---
 
-## 1. Overview
+## 1. 🚀 Overview 
 
 The Singularity recipe used to build this image is available here:  
 [coawst.centos8.def](https://github.com/lsuhpchelp/singularity/blob/coawst/recipes/coawst/coawst.centos8.def)
@@ -19,7 +19,7 @@ The image contains the following dependencies:
 - **MCT (Model Coupling Toolkit)** (2.11)  
 
 > ⚠️ The image only provides the **build environment and dependencies**.  
-> The actual **COAWST executable (`coawstM`)** must be compiled from source by the user, and will reside in the user’s working directory (e.g., `/home` or `/project`).
+> The actual **COAWST executable (`coawstM`)** must be compiled from source by the user, and will reside in the user’s working directory (e.g., `/home` or `/project`), please refrain from compiling your coawstM in /work as /work directory is subject to purge on LSU and LONI HPC clusters.
 
 The pre-built image is already available at:
 ```
@@ -29,16 +29,16 @@ The pre-built image is already available at:
 
 ## 2. Compiling `coawstM`
 
-### Step 1. Clone the COAWST source code, note that the below commands runs inside the container, not on the host system
+### Step 1. Clone the COAWST source code from the official USGS GitLab repository. 
 ```
 cd /project/$USER/
 git clone https://code.usgs.gov/coawstmodel/COAWST.git
-cd COAWST
+cd COAWST # enter the coawst source code directory
 ```
 
 ### Step 2. Modify the build script 
 
-Edit build_coawst.sh under the COAWST directory as follows:
+Edit the file `build_coawst.sh` (the source code used to build `coawstM` under the COAWST directory as follows:
 
 Line 141
 Change to:
@@ -80,22 +80,22 @@ Loading icc/latest
 
 Loading mpi version 2021.4.0
 Singularity> pwd
-/project/fchen14/singularity/recipes/coawst/COAWST
+/project/fchen14/COAWST
 ```
 
 ### Step 4. Build `coawstM` inside the singularity image
 
 ```bash
-Singularity> ./build_coawst.sh
-$gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
-rm -f -r core *.ipo ./Build_roms /home/fchen14/make_macros.mk
-$gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
-cp -f /usr/local/include/netcdf.mod ./Build_roms
-cp -f /usr/local/include/typesizes.mod ./Build_roms
-...lots of output...
-ranlib Build_roms/libROMS.a
-/opt/intel/oneapi/mpi/2021.4.0/bin/mpiifort -fp-model precise -fc=ifort -heap-arrays -ip -O3 -traceback -assume byterecl -I/project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/mod -I/usr/local/include  ./Build_roms/esmf_atm.o ./Build_roms/propagator.o ./Build_roms/roms_kernel.o ./Build_roms/master.o ./Build_roms/banihashemi.o ./Build_roms/get_wrf_moving_grids.o ./Build_roms/esmf_data.o ./Build_roms/esmf_wav.o ./Build_roms/get_numswan_grids.o ./Build_roms/esmf_ice.o ./Build_roms/mct_coupler_utils.o ./Build_roms/read_model_inputs.o ./Build_roms/ocean_coupler.o ./Build_roms/read_coawst_par.o ./Build_roms/get_numww3_grids.o ./Build_roms/esmf_esm.o ./Build_roms/coupler.o ./Build_roms/esmf_roms.o ./Build_roms/ww3_iounits.o ./Build_roms/dpolft.o ./Build_roms/mod_esmf_esm.o -o coawstM -L./Build_roms -lROMS  -L/usr/local/lib -lnetcdff -lnetcdf -lnetcdf -lm /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mct_coupler_params.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mod_coupler_iounits.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/get_sparse_matrix.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/lib/libswan41.45.a -L/usr/local/lib -lmct -lmpeu
-rm -f -r /home/fchen14/make_macros.mk
+    Singularity> ./build_coawst.sh
+    $gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
+    rm -f -r core *.ipo ./Build_roms /home/fchen14/make_macros.mk
+    $gitrev is f755f2749f1e6960e959e91d2a9ef490c7eb8db7
+    cp -f /usr/local/include/netcdf.mod ./Build_roms
+    cp -f /usr/local/include/typesizes.mod ./Build_roms
+    ...lots of output...
+    ranlib Build_roms/libROMS.a
+    /opt/intel/oneapi/mpi/2021.4.0/bin/mpiifort -fp-model precise -fc=ifort -heap-arrays -ip -O3 -traceback -assume byterecl -I/project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/mod -I/usr/local/include  ./Build_roms/esmf_atm.o ./Build_roms/propagator.o ./Build_roms/roms_kernel.o ./Build_roms/master.o ./Build_roms/banihashemi.o ./Build_roms/get_wrf_moving_grids.o ./Build_roms/esmf_data.o ./Build_roms/esmf_wav.o ./Build_roms/get_numswan_grids.o ./Build_roms/esmf_ice.o ./Build_roms/mct_coupler_utils.o ./Build_roms/read_model_inputs.o ./Build_roms/ocean_coupler.o ./Build_roms/read_coawst_par.o ./Build_roms/get_numww3_grids.o ./Build_roms/esmf_esm.o ./Build_roms/coupler.o ./Build_roms/esmf_roms.o ./Build_roms/ww3_iounits.o ./Build_roms/dpolft.o ./Build_roms/mod_esmf_esm.o -o coawstM -L./Build_roms -lROMS  -L/usr/local/lib -lnetcdff -lnetcdf -lnetcdf -lm /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mct_coupler_params.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/mod_coupler_iounits.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/Build_roms/get_sparse_matrix.o /project/fchen14/singularity/recipes/coawst/COAWST.cts8/SWAN/build/lib/libswan41.45.a -L/usr/local/lib -lmct -lmpeu
+    rm -f -r /home/fchen14/make_macros.mk
 Singularity>
 ```
 
@@ -107,16 +107,15 @@ Singularity> ls -latrh coawstM
 -rwxr-xr-x 1 fchen14 nobody 18M Aug 18 16:54 coawstM
 ```
 
-## 3. Running coawstM
+## 3. Running coawstM in parallel using MPI
 
-We will use the Inlet_test example provided by COAWST.
+We will then use the Inlet_test example as input provided by COAWST repository. Assume you have successfully built `/project/$USER/COAWST/coawstM`. 
 The input file is located under the COAWST source code root directory:
-
+```
 Projects/Inlet_test/Coupled/coupling_inlet_test.in
+```
 
-Assume you have successfully built `/project/$USER/COAWST/coawstM`.
-
-Example Slurm Job Script
+Below is an example Slurm Job Script
 
 ```bash
 #!/bin/bash
@@ -129,17 +128,15 @@ Example Slurm Job Script
 echo "This job is running on:" $(scontrol show hostname $SLURM_NODELIST)
 
 export SIMG="/project/container/images/coawst.env.sif"
-# bind the 
+# bind the /work and /project directory to the image, or singularity image won't be able to find your files in /work and /project
 export SINGULARITY_BINDPATH="/work,/project"
 
 module purge
 SECONDS=0
-
 # Run with 2 MPI processes inside the Singularity container
 srun -n2 singularity exec $SIMG \
     /project/$USER/COAWST/coawstM \
     Projects/Inlet_test/Coupled/coupling_inlet_test.in
-
 echo "Elapsed time: $SECONDS sec"
 ```
 
@@ -149,33 +146,14 @@ The default Inlet_test example is configured for 2 MPI processes.
 To use more processes (e.g., 32 as in the script above), you must modify the input files accordingly.
 Please refer to the official COAWST User Manual for details.
 
-On LONI QB4 compute nodes, this example run typically takes 800–900 seconds.
+On LONI QB4 compute nodes, this example run typically takes 800 - 900 seconds using 2 MPI processes (`srun -n2`).
 
 ## 4. Summary
 
-- Use the provided image at `/project/container/images/coawst.env.sif` — no need to build it yourself.  
+- Use the provided image at `/project/container/images/coawst.env.sif`. There is no need to build it yourself.  
 - All dependencies (**Intel MPI, NetCDF, MCT**) are already included.  
 - You must **compile your own COAWST executable (`coawstM`)** in your project directory (e.g., `/project/$USER/COAWST`).  
 - Run jobs through **Slurm**, binding `/work` and `/project` into the container when executing.  
 
 ---
-
-### 🚀 Quick Start
-
-```bash
-# 1. Enter the container
-singularity shell -B /work,/project /project/container/images/coawst.env.sif
-
-# 2. Get COAWST source
-cd /project/$USER
-git clone https://code.usgs.gov/coawstmodel/COAWST.git
-cd COAWST
-
-# 3. Edit build_coawst.sh (set MY_ROOT_DIR and use ifort), then build
-./build_coawst.sh
-
-# 4. Run example test case (Inlet_test)
-srun -n32 singularity exec /project/container/images/coawst.env.sif \
-    /project/$USER/COAWST/coawstM \
-    Projects/Inlet_test/Coupled/coupling_inlet_test.in
 
