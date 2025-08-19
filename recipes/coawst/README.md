@@ -21,7 +21,7 @@ The image contains the following dependencies:
 
 The pre-built image is already available on LONI QB3/QB4 cluster at:
 ```
-/project/container/images/coawst.env.sif
+/project/containers/images/coawst.env.sif
 ```
 ---
 
@@ -129,7 +129,7 @@ Below is an example Slurm Job Script. You can copy and save the contents below t
 
 echo "This job is running on:" $(scontrol show hostname $SLURM_NODELIST)
 
-export SIMG="/project/container/images/coawst.env.sif"
+export SIMG="/project/containers/images/coawst.env.sif"
 # bind the /work and /project directory to the image, or the singularity image won't be able to find your files in /work and /project
 export SINGULARITY_BINDPATH="/work,/project"
 
@@ -159,7 +159,7 @@ On LONI QB4 compute nodes, this example run typically takes 800 - 900 seconds us
 
 ## 4. Summary
 
-- Use the provided image at `/project/container/images/coawst.env.sif`. There is no need to build it yourself.  
+- Use the provided image at `/project/containers/images/coawst.env.sif`. There is no need to build it yourself.  
 - All dependencies (**Intel MPI, NetCDF, MCT**) are already included.  
 - You must **compile your own COAWST executable (`coawstM`)** in your project directory (e.g., `/project/$USER/COAWST`).  
 - Run jobs through **Slurm**, binding `/work` and `/project` into the container when executing.  
