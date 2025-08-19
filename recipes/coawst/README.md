@@ -19,7 +19,7 @@ The image contains the following dependencies:
 > ⚠️ The image only provides the **build environment and dependencies**.  
 > The actual **COAWST executable (`coawstM`)** must be compiled from source by the user, and will reside in the user’s working directory (e.g., `/home` or `/project`). Please refrain from compiling your coawstM in /work as the /work directory is subject to purge on LSU and LONI HPC clusters.
 
-The pre-built image is already available at:
+The pre-built image is already available on LONI QB3/QB4 cluster at:
 ```
 /project/container/images/coawst.env.sif
 ```
