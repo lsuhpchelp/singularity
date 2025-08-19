@@ -17,7 +17,7 @@ The image contains the following dependencies:
 - **MCT (Model Coupling Toolkit)** (2.11)  
 
 > ⚠️ The image only provides the **build environment and dependencies**.  
-> The actual **COAWST executable (`coawstM`)** must be compiled from source by the user, and will reside in the user’s working directory (e.g., `/home` or `/project`), please refrain from compiling your coawstM in /work as /work directory is subject to purge on LSU and LONI HPC clusters.
+> The actual **COAWST executable (`coawstM`)** must be compiled from source by the user, and will reside in the user’s working directory (e.g., `/home` or `/project`). Please refrain from compiling your coawstM in /work as the /work directory is subject to purge on LSU and LONI HPC clusters.
 
 The pre-built image is already available at:
 ```
@@ -117,7 +117,7 @@ The input file is located under the COAWST source code root directory:
 Projects/Inlet_test/Coupled/coupling_inlet_test.in
 ```
 
-Below is an example Slurm Job Script
+Below is an example Slurm Job Script. You can copy and save the contents below to a job script file, e.g., run_coawst_example.sh
 
 ```bash
 #!/bin/bash
@@ -130,12 +130,13 @@ Below is an example Slurm Job Script
 echo "This job is running on:" $(scontrol show hostname $SLURM_NODELIST)
 
 export SIMG="/project/container/images/coawst.env.sif"
-# bind the /work and /project directory to the image, or singularity image won't be able to find your files in /work and /project
+# bind the /work and /project directory to the image, or the singularity image won't be able to find your files in /work and /project
 export SINGULARITY_BINDPATH="/work,/project"
 
 module purge
+cd /project/$USER/COAWST/
+# Run with 2 MPI processes of coawstM inside the Singularity container
 SECONDS=0
-# Run with 2 MPI processes inside the Singularity container
 srun -n2 singularity exec $SIMG \
     /project/$USER/COAWST/coawstM \
     Projects/Inlet_test/Coupled/coupling_inlet_test.in
