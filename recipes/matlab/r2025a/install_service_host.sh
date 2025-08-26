@@ -1,6 +1,6 @@
 #!/bin/bash
 # Clone MWSH management scripts
-#git clone https://github.com/mathworks-ref-arch/administer-mathworks-service-host.git
+git clone https://github.com/mathworks-ref-arch/administer-mathworks-service-host.git
 #
 ## admin-controlled service host installation
 cd administer-mathworks-service-host/admin-scripts/linux/admin-controlled-installation
