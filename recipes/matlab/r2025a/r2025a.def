@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: mathworks/matlab:r2025a
+
+%labels
+    Author Feng Chen
+    Version R2025a-MATLAB-MPS
+
+%files
+    ./mpm_input_r2025a.txt /opt/   
+
+%environment
+    export LANG=en_US.UTF-8
+    export MATLABROOT=/opt/matlab_mpm
+    export MATHWORKS_SERVICE_HOST_ROOT=/opt/matlab_service_host
+    export PATH=$MATLABROOT/bin:$PATH
+
+%post
+    # Install required packages
+    apt-get update && apt-get install -y git wget unzip xz-utils &&     apt-get clean
+    apt-get install -y gettext vim
+
+    # Prepare directories
+    mkdir -p /opt/matlab_service_host
+
+    # Clone MWSH management scripts
+    cd /opt
+    git clone https://github.com/mathworks-ref-arch/administer-mathworks-service-host.git
+
+    # admin-controlled service host installation
+    cd /opt/administer-mathworks-service-host/admin-scripts/linux/admin-controlled-installation/
+	
+    ./download_msh.sh --destination ./tmp/Downloads/MathWorks/ServiceHost
+    #./install_msh.sh --source ./tmp/Downloads/MathWorks/ServiceHost --destination /opt/matlab_service_host
+    ./install_msh.sh --source ./tmp/Downloads/MathWorks/ServiceHost --destination /opt/matlab_service_host --update-environment
+
+    cd /opt
+    wget https://www.mathworks.com/mpm/glnxa64/mpm
+    chmod +x mpm
+    ./mpm install --inputfile ./mpm_input_r2025a.txt
+
