@@ -70,7 +70,7 @@
 ## uncomment the following line.
 
 #destinationFolder=/opt/matlab
-destinationFolder=/usr/local/packages/license/matlab/
+destinationFolder=/usr/local/packages/license/matlab/r2025a
 
 
 ########################################################################
