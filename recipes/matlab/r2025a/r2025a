@@ -1,0 +1,35 @@
+#%Module
+
+proc ModulesHelp { } {
+    puts stderr {
+        MATLAB is a high-level language and interactive environment developed by Mathworks. It is widely u
+sed in science and engineering across industry and academia.
+        Users need to provide their own license file, which should have a .lic extension and be located under /home/$U
+SER/.matlab/R2020b_licenses.
+    }
+}
+
+module-whatis {Description:
+        MATLAB is a high-level language and interactive environment developed by Mathworks. It is widely u
+sed in science and engineering across industry and academia.
+        Users need to provide their own license file, which should have a .lic extension and be located under /home/$U
+SER/.matlab/R2020b_licenses.
+}
+
+set root    /usr/local/packages/license/matlab
+
+conflict    matlab
+
+prepend-path    PATH            $root/r2025a/bin
+
+set SUPPORT_PACKAGES                  $root/support_packages
+set MATLAB_CLUSTER_PROFILES_LOCATION  $SUPPORT_PACKAGES/matlab_parallel_server/scripts
+set MATHWORKS_SERVICE_HOST_MANAGED_INSTALL_ROOT $root/matlab_service_host
+
+append-path                           PATH $SUPPORT_PACKAGES/matlab_parallel_server/bin
+prepend-path                          MATLABPATH $MATLAB_CLUSTER_PROFILES_LOCATION
+
+prepend-path MATLAB_CLUSTER_PROFILES_LOCATION $MATLAB_CLUSTER_PROFILES_LOCATION
+prepend-path MATHWORKS_SERVICE_HOST_MANAGED_INSTALL_ROOT $MATHWORKS_SERVICE_HOST_MANAGED_INSTALL_ROOT
+
+
