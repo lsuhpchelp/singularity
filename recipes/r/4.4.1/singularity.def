@@ -55,7 +55,7 @@ rpackages_biocmanager.out /opt
   
   # Install app necessary dependencies 
   #   - May be redundant. But tested to be needed for our list
-  yum install -y nc python3-websockify tcl.x86_64 llvm.x86_64 wget cmake which emacs vim gcc libxml2-devel libcurl-devel gmp-devel mpfr-devel xz cargo gdal-devel proj-devel sqlite-devel geos-devel  harfbuzz-devel fribidi-devel cairo-devel mysql-devel unixODBC-devel postgresql-devel gsl-devel udunits2-devel freetype-devel libpng-devel libtiff-devel libjpeg-devel fftw-devel libsodium-devel ImageMagick-c++-devel poppler-cpp-devel poppler-glib-devel libgit2-devel protobuf-devel tar openssh-server openssh-clients procps chkconfig R-4.4.1
+  yum install -y git nc python3-websockify python3-pip tcl.x86_64 llvm.x86_64 wget cmake which emacs vim gcc libxml2-devel libcurl-devel gmp-devel mpfr-devel xz cargo gdal-devel proj-devel sqlite-devel geos-devel  harfbuzz-devel fribidi-devel cairo-devel mysql-devel unixODBC-devel postgresql-devel gsl-devel udunits2-devel freetype-devel libpng-devel libtiff-devel libjpeg-devel fftw-devel libsodium-devel ImageMagick-c++-devel poppler-cpp-devel poppler-glib-devel libgit2-devel protobuf-devel tar openssh-server openssh-clients procps chkconfig R-4.4.1
   
   # Install Fonts
   yum groupinstall -y fonts
