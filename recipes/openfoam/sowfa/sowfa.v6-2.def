@@ -1,0 +1,65 @@
+BootStrap: docker
+From: kumoi/sowfa:v6-2
+
+%post
+
+    apt update
+    # remove the apt packages of openmpi that does not have pmi support
+    apt purge -y openmpi-bin libopenmpi-dev
+    apt install -y wget
+    
+    # compile and install slurm
+    cd /opt
+    wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+    tar zxf slurm-22-05-8-1.tar.gz  
+    cd slurm-slurm-22-05-8-1
+    ./configure && make -j20 && make install
+    cd contribs && make -j20 && make install
+     
+    # install openmpi with slurm and pmi support
+    # about the switch --enable-mca-no-build=btl-vader,btl-openib, 
+    # to resolve "Read -1, expected xxx" in the parallel-run logs 
+    # refer to https://users.open-mpi.narkive.com/IRvWQ76O/ompi-ompi-sendrecv-bugs
+    # https://bugs.openfoam.org/view.php?id=3163
+    # 
+    cd /opt
+    wget https://download.open-mpi.org/release/open-mpi/v2.1/openmpi-2.1.1.tar.bz2
+    tar jxf openmpi-2.1.1.tar.bz2
+    cd openmpi-2.1.1
+    # configure openmpi with pmi support
+    ./configure --with-slurm --with-pmi=/usr/local/ --with-pmi-libdir=/usr/local/lib/ \
+        --enable-mca-no-build=btl-vader,btl-openib
+    make -j20 && make install
+    
+    # for OpenFOAM-6 installation in a non-standard path
+    sed -i.bak '45,47s/^/# /' /foam/OpenFOAM-6/etc/bashrc
+
+    # Create bind points for HPC environment
+    mkdir -p /project /work /usr/lib64
+
+%environment
+    export LC_ALL="C.UTF-8"
+
+    # for OpenMPI to work properly
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+     
+    # for OpenFOAM-6
+    export OPENFOAM_VERSION=6
+    export OPENFOAM_NAME=OpenFOAM-$OPENFOAM_VERSION
+    export FOAM_INST_DIR=/foam/
+    source /foam/OpenFOAM-6/etc/bashrc
+    
+    export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial
+    export SOWFA_DIR=/foam/SOWFA-6
+    export SOWFA_APPBIN=$SOWFA_DIR/platforms/$WM_OPTIONS/bin
+    export SOWFA_LIBBIN=$SOWFA_DIR/platforms/$WM_OPTIONS/lib
+    export OPENFAST_DIR=/foam/openfast/install
+    
+    # Add to LD_LIBRARY_PATH if not already present
+    [[ ":$LD_LIBRARY_PATH:" != *":$SOWFA_LIBBIN:"* ]] && export LD_LIBRARY_PATH=$SOWFA_LIBBIN:$LD_LIBRARY_PATH
+    [[ ":$LD_LIBRARY_PATH:" != *":$OPENFAST_DIR/lib:"* ]] && export LD_LIBRARY_PATH=$OPENFAST_DIR/lib:$LD_LIBRARY_PATH
+    
+    # Add to PATH if not already present
+    [[ ":$PATH:" != *":$SOWFA_APPBIN:"* ]] && export PATH=$SOWFA_APPBIN:$PATH
+    [[ ":$PATH:" != *":$OPENFAST_DIR/bin:"* ]] && export PATH=$OPENFAST_DIR/bin:$PATH
+
