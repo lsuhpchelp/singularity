@@ -4,7 +4,7 @@ From: dolfinx/dolfinx:nightly-amd64
 %post
     # Update pip and install extra Python modules
     python3 -m pip install --upgrade pip
-    python3 -m pip install pyvista ipykernel
+    python3 -m pip install pyvista ipykernel h5py pandas
 
 %environment
     # Ensure installed packages are available
