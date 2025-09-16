@@ -63,3 +63,10 @@ From: kumoi/sowfa:v6-2
     [[ ":$PATH:" != *":$SOWFA_APPBIN:"* ]] && export PATH=$SOWFA_APPBIN:$PATH
     [[ ":$PATH:" != *":$OPENFAST_DIR/bin:"* ]] && export PATH=$OPENFAST_DIR/bin:$PATH
 
+    # runtime hygiene
+    unset FOAM_SIGFPE
+    export FOAM_ABORT=1
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+
