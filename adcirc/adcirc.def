@@ -1,0 +1,141 @@
+Bootstrap: docker
+From: rockylinux:8.5
+
+%labels
+    Author  fchen14@lsu.edu
+    Purpose Intel C/C++(DPC++) + Fortran + Intel MPI + MKL on Rocky 8.5 with modules
+    Base    rockylinux:8.5
+
+%environment
+    export PATH=/usr/local/bin:/usr/bin:/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib64:$LD_LIBRARY_PATH
+
+    export PATH=/opt/cmake-3.26.3-linux-x86_64/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/bin:$PATH
+    
+    #set environment for netcdf4 for ROMS and WRF
+    
+    export NETCDF=/opt/packages/netcdf-c-4.9.2
+    export NETCDF_CONFIG=/usr/local/bin/nc-config
+    export NETCDF_LIBDIR=/usr/local/lib
+    export NETCDF_INCDIR=/usr/local/include
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${NETCDF_LIBDIR}
+    export NETCDF_classic=1
+    
+    #----use intel mpi to compile and run roms ----
+    
+    export F90=ifort
+    export FC=ifort
+    export MPIFC=mpiifort
+    export MPIF77=mpiifort
+    export MPIF90=mpiifort
+
+    export I_MPI_F77=ifort
+    export I_MPI_F90=ifort
+
+%post
+    set -euo pipefail
+
+    echo "==> Fix dnf and install base deps"
+    dnf -y update || true
+    dnf -y groupinstall "Development Tools"
+    dnf -y install which wget curl ca-certificates \
+                   environment-modules \
+                   glibc libstdc++ libgcc libatomic \
+                   file xz bzip2 tar gzip \
+                   perl findutils git
+    dnf -y install wget git libcurl-devel libxml2-devel environment-modules m4 diffutils
+    dnf install -y rsync cmake
+    dnf -y install 'dnf-command(config-manager)'
+    dnf config-manager --set-enabled powertools
+    dnf -y install libtiff libtiff-devel zlib-devel libjpeg-turbo-devel \
+                   swig make python3 python3-devel boost-devel
+    dnf clean all
+
+    mkdir -p /opt/installers/
+
+    # echo "==> Install Intel DPC++/C++ 2021.4 to /opt/intel"
+    pwd
+    cd /opt/installers/
+    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/18209/l_dpcpp-cpp-compiler_p_2021.4.0.3201_offline.sh
+    chmod +x l_dpcpp-cpp-compiler_p_2021.4.0.3201_offline.sh
+    /opt/installers/l_dpcpp-cpp-compiler_p_2021.4.0.3201_offline.sh -a -s --eula accept --install-dir /opt/intel
+
+    # echo "==> Install Intel Fortran 2021.4 to /opt/intel"
+    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/18210/l_fortran-compiler_p_2021.4.0.3224_offline.sh
+    chmod +x l_fortran-compiler_p_2021.4.0.3224_offline.sh
+    /opt/installers/l_fortran-compiler_p_2021.4.0.3224_offline.sh -a -s --eula accept --install-dir /opt/intel
+
+    # echo "==> Download & install Intel MPI 2021.16.1"
+    cd /opt/installers
+    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/203edae7-5269-4124-a1ed-09ad924f8b47/intel-mpi-2021.16.1.804_offline.sh
+    chmod +x intel-mpi-2021.16.1.804_offline.sh
+    ./intel-mpi-2021.16.1.804_offline.sh -a -s --eula accept --install-dir /opt/intel
+
+    # echo "==> Download & install oneMKL 2021.4.0"
+    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/18222/l_onemkl_p_2021.4.0.640_offline.sh
+    chmod +x l_onemkl_p_2021.4.0.640_offline.sh
+    ./l_onemkl_p_2021.4.0.640_offline.sh -a -s --eula accept --install-dir /opt/intel
+    
+    echo "==> Clean up"
+    #rm -f /opt/installers/*.sh || true
+    
+    # set the intel compiler variables
+    #source /opt/intel/setvars.sh
+
+    /opt/intel/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
+    if [ -f /etc/profile.d/modules.sh ]; then
+        . /etc/profile.d/modules.sh
+    fi
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    module load icc mpi
+
+
+    mkdir /opt/packages
+    
+    # install HDF5
+    
+    cd /opt/packages
+    wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+    tar -xf hdf5-1.14.4-3.tar.gz && rm hdf5-1.14.4-3.tar.gz
+    cd hdf5-1.14.4-3
+    CC=icc CXX=icpc FC=ifort ./configure --prefix=/usr/local --with-zlib=/usr/local --enable-fortran --with-szib=/usr/local
+    make -j`nproc` && make install
+    
+    # install NetCDF
+    
+    cd /opt/packages
+    wget https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.9.2.tar.gz
+    tar -xf v4.9.2.tar.gz && rm v4.9.2.tar.gz
+    cd netcdf-c-4.9.2
+    CC=icc CXX=icpc ./configure --disable-dap --prefix=/usr/local
+    make -j `nproc` && make install
+    #
+    cd /opt/packages
+    wget https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.6.1.tar.gz
+    tar -xf v4.6.1.tar.gz && rm v4.6.1.tar.gz
+    cd netcdf-fortran-4.6.1
+    #CC=icc CXX=icpc FC=ifort ./configure ac_cv_sizeof_off_t=8 --disable-dap --prefix=/usr/local
+    export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH
+    CC=icc CXX=icpc FC=ifort ./configure --disable-dap --prefix=/usr/local
+    make -j `nproc` && make install
+
+    cd /opt
+    git clone https://github.com/adcirc/adcirc.git
+    cd adcirc
+    git reset --hard 5bc04d6
+    mkdir build && cd build
+    cmake .. -DBUILD_ADCIRC=ON -DBUILD_PADCIRC=ON \
+             -DBUILD_ADCPREP=ON -DBUILD_UTILITIES=ON \
+             -DENABLE_OUTPUT_NETCDF=ON 
+    make -j `nproc`
+
+    # create mounting point
+    mkdir -p /project /work /usr/lib64
+
+%runscript
+
+    source /opt/intel/setvars.sh
+
