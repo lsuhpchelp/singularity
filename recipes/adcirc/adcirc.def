@@ -127,9 +127,22 @@ From: rockylinux:8.5
     cd adcirc
     git reset --hard 5bc04d6
     mkdir build && cd build
-    cmake .. -DBUILD_ADCIRC=ON -DBUILD_PADCIRC=ON \
-             -DBUILD_ADCPREP=ON -DBUILD_UTILITIES=ON \
-             -DENABLE_OUTPUT_NETCDF=ON 
+    cmake .. -DBUILD_ADCIRC=ON \
+             -DBUILD_PADCIRC=ON \
+             -DBUILD_ADCPREP=ON \
+             -DBUILD_UTILITIES=ON \
+             -DBUILD_ADCSWAN=ON \
+             -DENABLE_OUTPUT_NETCDF=ON \
+             -DBUILD_PADCSWAN=ON \
+             -DBUILD_SWAN=ON \
+             -DBUILD_PUNSWAN=ON \
+             -DBUILD_ASWIP=ON \
+             -DCMAKE_INSTALL_PREFIX=/usr/local/bin
+    make -j `nproc` && make install
+
+#    cmake .. -DBUILD_ADCIRC=ON -DBUILD_PADCIRC=ON \
+#             -DBUILD_ADCPREP=ON -DBUILD_UTILITIES=ON \
+#             -DENABLE_OUTPUT_NETCDF=ON 
     make -j `nproc`
 
     # create mounting point
