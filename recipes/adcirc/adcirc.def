@@ -35,6 +35,8 @@ From: rockylinux:8.5
     export I_MPI_F77=ifort
     export I_MPI_F90=ifort
 
+    export LC_ALL=C
+
 %post
     set -euo pipefail
 
@@ -137,13 +139,14 @@ From: rockylinux:8.5
              -DBUILD_SWAN=ON \
              -DBUILD_PUNSWAN=ON \
              -DBUILD_ASWIP=ON \
-             -DCMAKE_INSTALL_PREFIX=/usr/local/bin
+             -DCMAKE_INSTALL_PREFIX=/usr/local/
     make -j `nproc` && make install
-
-#    cmake .. -DBUILD_ADCIRC=ON -DBUILD_PADCIRC=ON \
-#             -DBUILD_ADCPREP=ON -DBUILD_UTILITIES=ON \
-#             -DENABLE_OUTPUT_NETCDF=ON 
-    make -j `nproc`
+    
+    # for unhcat
+    cd /opt/adcirc/thirdparty/swan
+    CC=icc FC=ifort perl platform.pl
+    make unhcat compiler=intel DEBUG=none
+    cp unhcat.exe /usr/local/bin
 
     # create mounting point
     mkdir -p /project /work /usr/lib64
@@ -151,4 +154,6 @@ From: rockylinux:8.5
 %runscript
 
     source /opt/intel/setvars.sh
+    exec "$@"
+
 
