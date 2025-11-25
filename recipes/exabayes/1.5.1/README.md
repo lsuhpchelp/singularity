@@ -1,4 +1,4 @@
-## Running exabayes in normal mode (serial commands)
+## Running exabayes commands not using MPI
 
 The following instructions and Slurm scripts are adapted from the ExaBayes documentation (see: https://cme.h-its.org/exelixis/web/software/exabayes/manual/index.html#sec-4-2
 ). 
