@@ -1,0 +1,81 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+    Author "Feng Chen and Siva Prasad Kasetti"
+    Version "1.5.1"
+    Software "ExaBayes"
+    Build "Autotools + MPI (Released Version)"
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Update and install required build dependencies
+    apt-get update && apt-get install -y \
+        build-essential \
+        gcc \
+        g++ \
+        make \
+        git \
+        wget \
+        autoconf \
+        automake \
+        libtool \
+        autoconf-archive \
+        zlib1g-dev \
+        libbz2-dev \
+        python3 \
+        && apt-get clean
+
+    cd /opt
+
+    wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+    tar zxf slurm-22-05-8-1.tar.gz  
+    cd slurm-slurm-22-05-8-1
+    ./configure && make -j20 && make install
+    cd contribs && make -j20 && make install
+     
+    # install openmpi with slurm and pmi support
+    # about the switch --enable-mca-no-build=btl-vader,btl-openib, 
+    # to resolve "Read -1, expected xxx" in the parallel-run logs 
+    # refer to https://users.open-mpi.narkive.com/IRvWQ76O/ompi-ompi-sendrecv-bugs
+    # https://bugs.openfoam.org/view.php?id=3163
+    # 
+    cd /opt
+    wget https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.3.tar.bz2
+    tar jxf openmpi-4.0.3.tar.bz2
+    cd openmpi-4.0.3
+    # configure openmpi with pmi support
+    ./configure --with-slurm --with-pmi=/usr/local/ --with-pmi-libdir=/usr/local/lib/ \
+        --enable-mca-no-build=btl-vader,btl-openib
+    make -j20 && make install
+
+    export PATH="/usr/local/bin:${PATH}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+    cd /opt
+    # Download the stable released version
+    # Replace URL if newer release is available
+    wget https://cme.h-its.org/exelixis/resource/download/software/exabayes-1.5.1.tar.gz
+    tar -xzf exabayes-1.5.1.tar.gz
+    cd exabayes-1.5.1
+    export MPICC=`which mpicc`
+    export MPICXX=`which mpicxx`
+    ./configure --enable-mpi
+
+    ## Build and install
+    make -j$(nproc)
+    make install
+
+    ## Cleanup
+    mkdir -p /work /project /usr/lib64
+
+%environment
+    # Expose ExaBayes executables
+    export LC_ALL="C.UTF-8"
+    export PATH="/usr/local/bin:${PATH}"
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+%runscript
+    # Default command when running the container
+
