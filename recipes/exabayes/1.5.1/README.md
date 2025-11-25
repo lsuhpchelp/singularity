@@ -1,7 +1,9 @@
 ## Running exabayes in normal mode (serial commands)
 
 The following instructions and Slurm scripts are adapted from the ExaBayes documentation (see: https://cme.h-its.org/exelixis/web/software/exabayes/manual/index.html#sec-4-2
-). To run ExaBayes utilities that do not use MPI (such as `yggdrasil`), simply load the `exabayes` module and call the tool directly. For example, to run `yggdrasil`:
+). 
+
+To run ExaBayes utilities that do not use MPI (such as `yggdrasil`), simply load the `exabayes` module and call the tool directly. For example, to run `yggdrasil`:
 
 ```bash
 [fchen14@qbc003 1.5.1]$ module load exabayes
