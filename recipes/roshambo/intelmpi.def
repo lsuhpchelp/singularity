@@ -22,16 +22,17 @@ export RDKIT_DATA_DIR=$RDBASE/Data
 export PYTHONPATH=$PYTHONPATH:$RDBASE
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RDBASE/lib
 export CUDA_HOME=/usr/local/cuda-12
+#export I_MPI_PMI_LIBRARY=/usr/lib/x86_64-linux-gnu/libpmi2.so
 
 
 ################################################################################
 %post
 ################################################################################
 
-# Install CUDA 12.6 (Package is old. 13.0+ does not work)
+# Install CUDA 12.2 (Package is old. 13.0+ does not work)
 cd /opt
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb
-apt update && DEBIAN_FRONTEND="noninteractive" apt -y install cuda-12-6 pip sqlite3 libsqlite3-dev libboost-dev libboost-all-dev libfreetype-dev libeigen3-dev && apt clean
+apt update && DEBIAN_FRONTEND="noninteractive" apt -y install cuda-12-2 pip sqlite3 libsqlite3-dev libboost-dev libboost-all-dev libfreetype-dev libeigen3-dev && apt clean
 pip install joblib tqdm requests biopython mpi4py IPython numpy && pip cache purge
 
 # Install rdkit 2024_03_6
@@ -55,4 +56,4 @@ export CUDA_HOME=/usr/local/cuda-12
 cd /opt
 git clone https://github.com/rashatwi/roshambo.git
 cd roshambo
-pip install -e .
+pip install -e . && pip cache purge

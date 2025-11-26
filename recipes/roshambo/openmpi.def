@@ -1,0 +1,67 @@
+Bootstrap: docker
+From: nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         ???
+Description     Roshambo is a python package for robust Gaussian molecular shape comparison
+
+
+################################################################################
+%environment
+################################################################################
+
+export RDBASE=/opt/rdkit-Release_2024_03_6
+export RDKIT_LIB_DIR=$RDBASE/lib
+export RDKIT_INCLUDE_DIR=$RDBASE/Code
+export RDKIT_DATA_DIR=$RDBASE/Data
+export PYTHONPATH=$PYTHONPATH:$RDBASE
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH:$RDBASE/lib
+export CUDA_HOME=/usr/local/cuda-12
+
+
+################################################################################
+%post
+################################################################################
+
+# Install dependencies
+apt update && DEBIAN_FRONTEND="noninteractive" apt -y install cmake wget git python3-dev pip sqlite3 libsqlite3-dev libboost-dev libboost-all-dev libfreetype-dev libeigen3-dev libpmi2-0-dev libcairo2-dev && apt clean
+pip install joblib tqdm requests biopython mpi4py IPython numpy && pip cache purge
+
+# Install OpenMPI w/ PMI2
+cd /opt
+wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz && tar -xf openmpi-4.1.6.tar.gz && rm openmpi-4.1.6.tar.gz
+cd openmpi-4.1.6
+./configure --with-hwloc=internal --with-slurm \
+    --with-pmi=/usr \
+    --without-verbs \
+    --with-pmi-libdir=/usr/lib/x86_64-linux-gnu
+make -j $(nproc) && make install
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+# Install rdkit 2024_03_6
+#   Too old: Attempts to manually download a font that no longer exists.
+#   Too new: Does not play well with the dependency versions in this package
+cd /opt
+wget https://github.com/rdkit/rdkit/archive/refs/tags/Release_2024_03_6.tar.gz && tar -xf Release_2024_03_6.tar.gz && rm Release_2024_03_6.tar.gz
+cd rdkit-Release_2024_03_6
+mkdir build
+cd build
+cmake -DRDK_BUILD_INCHI_SUPPORT=ON .. && make -j`nproc` && make install
+
+# Install Roshambo
+export RDBASE=/opt/rdkit-Release_2024_03_6
+export RDKIT_LIB_DIR=$RDBASE/lib
+export RDKIT_INCLUDE_DIR=$RDBASE/Code
+export RDKIT_DATA_DIR=$RDBASE/Data
+export PYTHONPATH=$PYTHONPATH:$RDBASE
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RDBASE/lib
+export CUDA_HOME=/usr/local/cuda-12
+cd /opt
+git clone https://github.com/rashatwi/roshambo.git
+cd roshambo
+pip install -e . && pip cache purge
