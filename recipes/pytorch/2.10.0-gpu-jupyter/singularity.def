@@ -1,0 +1,59 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         2.10.0
+CUDA_version    13.0
+CUDNN_version   9
+Description     PyTorch framework for deep learning, with GPU support, QT support, commonly used Python modules such as jupyter.
+
+
+################################################################################
+%environment
+################################################################################
+
+export PATH=/opt/miniforge3/bin:$PATH
+
+
+################################################################################
+%post
+################################################################################
+
+# Install dependencies (MPI and QT backend)
+apt update
+DEBIAN_FRONTEND=noninteractive apt install -y wget libmpich-dev qt6-base-dev qt6-tools-dev libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xinput0 libxcb-shape0 && apt clean
+
+# Install Miniforge
+cd /opt
+wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
+    bash Miniforge3-Linux-x86_64.sh -b -p /opt/miniforge3/ && \
+    rm Miniforge3-Linux-x86_64.sh && \
+    /opt/miniforge3/bin/conda init bash && \
+    . /opt/miniforge3/bin/activate
+    
+# Install PyTorch and other common packages
+pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu130
+pip install matplotlib \
+            pyqt5 \
+            jupyterlab \
+            Cython \
+            dask \
+            mpi4py \
+            nltk \
+            numba \
+            numexpr \
+            pandas \
+            regex \
+            seaborn \
+            scikit-image \
+            scikit-learn \
+            scikit-learn-intelex \
+            scipy \
+            statsmodels \
+            sympy \
+            tqdm  &&  pip cache purge
