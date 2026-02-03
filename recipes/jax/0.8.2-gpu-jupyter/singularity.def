@@ -8,7 +8,7 @@ From: ubuntu:24.04
 
 Maintainer      Jason Li
 Version         0.8.2
-CUDA_version    13.0
+CUDA_version    12.9
 CUDNN_version   9
 Description     JAX is NumPy on the CPU, GPU, and TPU, with great automatic differentiation for high-performance machine learning research.
 
@@ -37,7 +37,7 @@ wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge
     . /opt/miniforge3/bin/activate
     
 # Install Tensorflow and other common packages
-pip install jax[cuda13]==0.8.2
+pip install jax[cuda12]==0.8.2
 pip install matplotlib \
             pyqt5 \
             jupyterlab \

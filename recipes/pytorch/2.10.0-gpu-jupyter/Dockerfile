@@ -23,7 +23,7 @@ RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Minif
 ENV PATH /opt/miniforge3/bin:$PATH
     
 # Install PyTorch and other common packages
-RUN pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu130
+RUN pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu126
 RUN pip install matplotlib \
             pyqt5 \
             jupyterlab \

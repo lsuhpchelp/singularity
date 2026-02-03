@@ -23,7 +23,7 @@ RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Minif
 ENV PATH /opt/miniforge3/bin:$PATH
     
 # Install Tensorflow and other common packages
-RUN pip install jax[cuda13]==0.8.2
+RUN pip install jax[cuda12]==0.8.2
 RUN pip install matplotlib \
             pyqt5 \
             jupyterlab \

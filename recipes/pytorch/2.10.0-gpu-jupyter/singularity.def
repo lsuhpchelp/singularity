@@ -8,7 +8,7 @@ From: ubuntu:24.04
 
 Maintainer      Jason Li
 Version         2.10.0
-CUDA_version    13.0
+CUDA_version    12.6
 CUDNN_version   9
 Description     PyTorch framework for deep learning, with GPU support, QT support, commonly used Python modules such as jupyter.
 
@@ -37,7 +37,7 @@ wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge
     . /opt/miniforge3/bin/activate
     
 # Install PyTorch and other common packages
-pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu130
+pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu126
 pip install matplotlib \
             pyqt5 \
             jupyterlab \
