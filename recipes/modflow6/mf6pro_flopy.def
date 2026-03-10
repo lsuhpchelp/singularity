@@ -1,0 +1,56 @@
+Bootstrap: localimage
+From: mf6pro.sif
+
+%labels
+   Author  Siva Prasad Kasetti
+   Description Install FloPy
+
+%environment
+    export LC_ALL=C
+    export DEBIAN_FRONTEND=noninteractive
+    export PATH=/usr/bin:/usr/local/bin:/opt/modflow6/bin:/opt/conda/envs/mf6pro/bin:/opt/conda/bin:/usr/sbin:/usr/local/sbin:/bin
+
+    export PETSC_DIR=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
+    export CONDA_PREFIX=/opt/conda/envs/mf6pro
+    export CONDA_DEFAULT_ENV=mf6pro 
+
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+
+%post
+    echo "Installing system dependencies..."
+    apt-get update
+
+    export PATH=/usr/bin:/usr/local/bin:/opt/modflow6/bin:/opt/conda/envs/mf6pro/bin:/opt/conda/bin:/usr/sbin:/usr/local/sbin:/bin
+    export PETSC_DIR=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
+    export PETSC_ARCH=
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+
+    #Download and install Miniconda3
+
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    chmod +x /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    conda init
+    rm /tmp/miniconda.sh
+
+    #Accept tos to avoid error
+
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
+    #Clone MODFLOW 6 repos
+
+    cd /opt
+
+    . /opt/conda/etc/profile.d/conda.sh
+
+    sed '/^[[:space:]]*-[[:space:]]*modflow6[[:space:]]*$/d' parallel-modflow6-class/environment/flopy_environment.yml
+    cat parallel-modflow6-class/environment/flopy_environment.yml
+
+    conda env create -f ./parallel-modflow6-class/environment/flopy_environment.yml
+
+    conda activate mf6pro
+    conda install -y -c conda-forge jupyter jupyterlab
+
+%runscript
+

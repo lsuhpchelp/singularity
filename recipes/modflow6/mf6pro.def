@@ -1,0 +1,58 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%labels
+   Author  Siva Prasad Kasetti
+   Description Install Parallel MODFLOW 6
+
+%environment
+    export LC_ALL=C
+    export DEBIAN_FRONTEND=noninteractive
+
+    export PATH=/usr/bin:/usr/local/bin:/opt/modflow6/bin:/usr/sbin:/usr/local/sbin:/bin
+
+    export PETSC_DIR=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
+    export PETSC_ARCH=
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+
+    export CC=/usr/bin/mpicc    
+    export CXX=/usr/bin/mpicc   
+    export F77=/usr/bin/mpif90  
+    export F90=/usr/bin/mpif90  
+    export FC=/usr/bin/mpif90   
+
+%post
+    echo "Installing system dependencies..."
+    apt-get update
+    apt-get install -y wget git cmake bzip2 pkg-config ca-certificates build-essential \
+    petsc-dev openmpi-bin libopenmpi-dev meson ninja-build libnetcdf-dev libhdf5-dev
+    apt-get clean
+
+    export PATH=/usr/bin:/usr/local/bin:/opt/modflow6/bin:/usr/sbin:/usr/local/sbin:/bin
+
+    export PETSC_DIR=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
+    export PETSC_ARCH=
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+
+    export CC=/usr/bin/mpicc    
+    export CXX=/usr/bin/mpicc   
+    export F77=/usr/bin/mpif90  
+    export F90=/usr/bin/mpif90  
+    export FC=/usr/bin/mpif90
+
+    #Clone MODFLOW 6 repos
+
+    cd /opt
+
+    git clone https://github.com/jdhughes-usgs/parallel-modflow6-class.git
+    git clone https://github.com/MODFLOW-USGS/modflow6.git
+
+    #Install MODFLOW 6
+
+    #cd modflow6
+    #CC=${CC} CXX=${CXX} F77=${F77} F90=${F90} FC=${FC} meson setup builddir -Ddebug=false -Dparallel=true --prefix=$(pwd) --libdir=bin
+    #meson install -C builddir
+    #meson test --verbose --no-rebuild -C builddir
+
+%runscript
+

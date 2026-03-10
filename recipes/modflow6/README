@@ -1,0 +1,4 @@
+#This is the recipe for building singularity image for MODFLOW6 with FloPy and w/o.
+
+#Instructions on running this image
+
