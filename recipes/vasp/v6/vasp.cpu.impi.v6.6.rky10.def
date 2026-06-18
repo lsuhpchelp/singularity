@@ -11,9 +11,7 @@ src/v6.6/vasp.6.6.0.tgz                  /opt/
 %post
 
 dnf install -y perl-ExtUtils-MakeMaker
-#dnf install -y epel-release
-#dnf config-manager --set-enabled crb 
-dnf install -y wget hwloc #pmix pmix-devel
+dnf install -y wget hwloc 
 dnf install -y environment-modules
 dnf install -y rsync
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
