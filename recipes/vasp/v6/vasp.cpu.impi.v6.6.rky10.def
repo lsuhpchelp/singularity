@@ -14,6 +14,7 @@ dnf install -y perl-ExtUtils-MakeMaker
 dnf install -y wget hwloc 
 dnf install -y environment-modules
 dnf install -y rsync
+dnf install -y hdf5-devel
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
 
 # compile and install slurm
@@ -30,22 +31,39 @@ source /etc/profile.d/modules.sh
 export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
 module load compiler mpi mkl
 
+mkdir /opt/packages
+cd /opt/packages
+wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+tar -xf hdf5-1.14.4-3.tar.gz && rm hdf5-1.14.4-3.tar.gz
+cd hdf5-1.14.4-3
+CC=icx CXX=icpx FC=ifx ./configure --prefix=/usr/ --with-zlib=/usr --enable-fortran
+make -j`nproc` && make install
+
 cd /opt
 tar zxf vasp.6.6.0.tgz
 cd vasp.6.6.0
-cp arch/makefile.include.intel_ompi_mkl_omp ./makefile.include
-sed -i '14s|.*|FC          = mpiifx -qopenmp|' ./makefile.include
-sed -i '15s|.*|FCL         = mpiifx|' ./makefile.include
-sed -i '28s|.*|CC_LIB      = icx|' ./makefile.include
-sed -i '36s|.*|CXX_PARS    = icpx|' ./makefile.include
-sed -i '52s|.*|FCL        += -qmkl=cluster|' ./makefile.include
-sed -i '58s|^|#|' ./makefile.include
-sed -i '59s|^|#|' ./makefile.include
+cp arch/makefile.include.oneapi_omp ./makefile.include
+#cp arch/makefile.include.oneapi_omp makefile.include
 
+sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
+sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
+sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
+sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
+sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
+
+#cp arch/makefile.include.intel_ompi_mkl_omp ./makefile.include
+#sed -i '14s|.*|FC          = mpiifx -qopenmp|' ./makefile.include
+#sed -i '15s|.*|FCL         = mpiifx|' ./makefile.include
+#sed -i '28s|.*|CC_LIB      = icx|' ./makefile.include
+#sed -i '36s|.*|CXX_PARS    = icpx|' ./makefile.include
+#sed -i '52s|.*|FCL        += -qmkl=cluster|' ./makefile.include
+#sed -i '58s|^|#|' ./makefile.include
+#sed -i '59s|^|#|' ./makefile.include
+#
 # build vasp
 make veryclean
 make DEPS=1 -j64
-#make test
+##make test
 
 %environment
 export LC_ALL=C
