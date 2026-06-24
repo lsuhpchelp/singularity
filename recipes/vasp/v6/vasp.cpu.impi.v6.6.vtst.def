@@ -55,34 +55,31 @@ sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' ma
 sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
 sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
 
-    # VTST for VASP 6.6.0
-    cp -r /opt/vtstcode/vtstcode6.6.0/* src/
+# VTST for VASP 6.6.0
+cp -r /opt/vtstcode/vtstcode6.6.0/* src/
 
-    sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
-    sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
+sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
+sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
 
-    sed -i '/chain.o/i\
-	bfgs.o \\\
-	dynmat.o \\\
-	instanton.o \\\
-	lbfgs.o \\\
-	sd.o \\\
-	cg.o \\\
-	dimer.o \\\
-	bbm.o \\\
-	fire.o \\\
-	lanczos.o \\\
-	neb.o \\\
-	qm.o \\\
-	pyamff_fortran/*.o \\\
-	ml_pyamff.o \\\
-	opt.o \\' src/.objects
+sed -i '/chain.o/i\
+    bfgs.o \\\
+    dynmat.o \\\
+    instanton.o \\\
+    lbfgs.o \\\
+    sd.o \\\
+    cg.o \\\
+    dimer.o \\\
+    bbm.o \\\
+    fire.o \\\
+    lanczos.o \\\
+    neb.o \\\
+    qm.o \\\
+    pyamff_fortran/*.o \\\
+    ml_pyamff.o \\\
+    opt.o \\' src/.objects
 
-    #sed -i 's|CALL CHAIN_FORCE(T_INFO%NIONS,DYN%POSION,TOTEN,TIFOR, &|CALL CHAIN_FORCE(T_INFO%NIONS,DYN%POSION,TOTEN,TIFOR, &|' src/main.F
-    #sed -i 's|&                 LATT_CUR%A,LATT_CUR%B,IO%IU6)|&                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)|' src/main.F
-    #sed -i 's|IF (LCHAIN) CALL chain_init( T_INFO, IO)|CALL chain_init( T_INFO, IO)|' src/main.F
-    sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
-    sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
+sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
 
 
 
