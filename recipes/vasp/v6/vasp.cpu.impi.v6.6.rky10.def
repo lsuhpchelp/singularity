@@ -66,6 +66,7 @@ source /etc/profile.d/modules.sh
 export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
 module load compiler mpi mkl
 export PATH=/opt/vasp.6.6.0/bin:$PATH
+export LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
 
 %runscript
 exec "$@"
