@@ -14,7 +14,7 @@ dnf install -y perl-ExtUtils-MakeMaker
 dnf install -y wget hwloc 
 dnf install -y environment-modules
 dnf install -y rsync
-#dnf install -y hdf5-devel
+dnf install -y autoconf automake libtool m4
 # https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
 
 # compile and install slurm
@@ -40,6 +40,24 @@ cd hdf5-1.14.4-3
 CC=icx CXX=icpx FC=ifx ./configure --prefix=/usr/ --with-zlib=/usr --enable-fortran
 make -j`nproc` && make install
 
+# install LIBXC
+cd /opt/packages
+LIBXC_VERSION=7.0.0
+wget https://gitlab.com/libxc/libxc/-/archive/${LIBXC_VERSION}/libxc-${LIBXC_VERSION}.tar.gz
+tar -xf libxc-${LIBXC_VERSION}.tar.gz && rm libxc-${LIBXC_VERSION}.tar.gz
+cd libxc-${LIBXC_VERSION}
+
+autoreconf -i
+
+CC=icx FC=ifx ./configure \
+  --prefix=/opt/libxc/${LIBXC_VERSION} \
+  --enable-shared \
+  --enable-static \
+  --disable-fhc
+
+make -j`nproc`
+make install
+
 cd /opt
 tar zxf vasp.6.6.0.tgz
 cd vasp.6.6.0
@@ -53,27 +71,19 @@ cd build
 
 # Configure (example): point CMake to the VASP source root and pass options
 cmake .. \
+  -DLibXC_ROOT="/opt/libxc/${LIBXC_VERSION}" \
   -DVASP_OPENMP=ON \
-  -DVASP_HDF5=ON
+  -DVASP_HDF5=ON \
+  -DVASP_SCALAPACK=ON \
+  -DVASP_LIBXC=ON
+
+#  -DVASP_LIBBEEF=ON \
+#  -DVASP_DFTD4=ON #\
+#  -DVASP_WANNIER90=ON
 
 # Optional: use Ninja instead of Make
 # cmake /your/vasp/directory -G Ninja -DVASP_OPENMP=ON
 make -j all
-
-## enable hdf5 and also qmkl
-#cp arch/makefile.include.oneapi_omp ./makefile.include
-#sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
-#sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
-#sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
-#sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
-#sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
-#
-## third party
-#
-#
-## build vasp
-#make veryclean
-#make DEPS=1 -j64
 
 %environment
 export LC_ALL=C
