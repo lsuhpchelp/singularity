@@ -1,0 +1,324 @@
+Bootstrap: localimage
+From: base-nvhpc_002.sif
+
+%labels
+    Author Oleg Starovoytov
+    Description GROMACS 2026.1 with NVHPC 26.3, HPC-X MPI, CUDA 13.1, and cuFFTMp
+    GROMACS 2026.1
+    NVHPC 26.3
+    CUDA 13.1
+    CUDA_Architecture 80
+
+%files
+    gromacs-2026.1.tar.gz /tmp/gromacs-2026.1.tar.gz
+
+%environment
+
+    # ----------------------------------------------------------------------
+    # Base toolchain
+    # ----------------------------------------------------------------------
+
+    export GCC_ROOT=/opt/gcc-12.3.0
+    export CMAKE_ROOT=/opt/cmake
+    export NVHPC_ROOT=/opt/nvhpc/Linux_x86_64/26.3
+
+    # ----------------------------------------------------------------------
+    # CUDA
+    # ----------------------------------------------------------------------
+
+    export CUDA_HOME=${NVHPC_ROOT}/cuda/13.1
+    export CUDAToolkit_ROOT=${CUDA_HOME}
+
+    # ----------------------------------------------------------------------
+    # HPC-X MPI
+    # ----------------------------------------------------------------------
+
+    export HPCX_HOME=${NVHPC_ROOT}/comm_libs/13.1/hpcx/hpcx-2.25.1
+    export MPI_HOME=${HPCX_HOME}/ompi
+
+    # Required because HPC-X was relocated inside the container
+    export OPAL_PREFIX=${MPI_HOME}
+
+    # ----------------------------------------------------------------------
+    # cuFFTMp and NVSHMEM
+    # ----------------------------------------------------------------------
+
+    export CUFFTMP_ROOT=/opt/libcufftmp
+    export NVSHMEM_HOME=${NVHPC_ROOT}/comm_libs/13.1/nvshmem
+
+    # ----------------------------------------------------------------------
+    # GROMACS
+    # ----------------------------------------------------------------------
+
+    export GMX_ROOT=/opt/gromacs
+
+    # ----------------------------------------------------------------------
+    # Compilers
+    # ----------------------------------------------------------------------
+
+    export CC=nvc
+    export CXX=nvc++
+    export FC=nvfortran
+
+    export MPICC=mpicc
+    export MPICXX=mpicxx
+    export MPIFC=mpifort
+
+    # ----------------------------------------------------------------------
+    # Executables
+    # ----------------------------------------------------------------------
+
+    export PATH="${GMX_ROOT}/bin:${GCC_ROOT}/bin:${CMAKE_ROOT}/bin:${NVHPC_ROOT}/compilers/bin:${CUDA_HOME}/bin:${MPI_HOME}/bin:${HPCX_HOME}/ucx/bin:${NVSHMEM_HOME}/bin:${PATH}"
+
+    # ----------------------------------------------------------------------
+    # Runtime libraries
+    # ----------------------------------------------------------------------
+
+    export LD_LIBRARY_PATH="${GMX_ROOT}/lib64:${GCC_ROOT}/lib64:${NVHPC_ROOT}/compilers/lib:${CUDA_HOME}/lib64:${MPI_HOME}/lib:${HPCX_HOME}/ucx/lib:${NVSHMEM_HOME}/lib:${CUFFTMP_ROOT}/lib/13:${LD_LIBRARY_PATH:-}"
+
+    # ----------------------------------------------------------------------
+    # OpenMP
+    # ----------------------------------------------------------------------
+
+    export OMP_DYNAMIC=FALSE
+    export OMP_PROC_BIND=close
+    export OMP_PLACES=cores
+
+    # Remove inherited variable from the base image.
+    # UCX interprets UCX_* names as runtime configuration options.
+    unset UCX_ROOT
+
+%post
+
+    set -eux
+
+    echo "========================================================"
+    echo "Building GROMACS 2026.1"
+    echo "========================================================"
+
+    # ----------------------------------------------------------------------
+    # Required directories
+    # ----------------------------------------------------------------------
+
+    export GCC_ROOT=/opt/gcc-12.3.0
+    export CMAKE_ROOT=/opt/cmake
+    export NVHPC_ROOT=/opt/nvhpc/Linux_x86_64/26.3
+
+    export CUDA_HOME=${NVHPC_ROOT}/cuda/13.1
+    export CUDAToolkit_ROOT=${CUDA_HOME}
+
+    export HPCX_HOME=${NVHPC_ROOT}/comm_libs/13.1/hpcx/hpcx-2.25.1
+    export MPI_HOME=${HPCX_HOME}/ompi
+    export UCX_ROOT=${HPCX_HOME}/ucx
+
+    export NVSHMEM_HOME=${NVHPC_ROOT}/comm_libs/13.1/nvshmem
+    export CUFFTMP_ROOT=/opt/libcufftmp
+
+    export GMX_SOURCE=/opt/gromacs-source
+    export GMX_BUILD=/opt/gromacs-build
+    export GMX_INSTALL=/opt/gromacs
+
+    # ----------------------------------------------------------------------
+    # Compilers
+    # ----------------------------------------------------------------------
+
+    export CC=${NVHPC_ROOT}/compilers/bin/nvc
+    export CXX=${NVHPC_ROOT}/compilers/bin/nvc++
+    export FC=${NVHPC_ROOT}/compilers/bin/nvfortran
+
+    export MPICC=${MPI_HOME}/bin/mpicc
+    export MPICXX=${MPI_HOME}/bin/mpicxx
+    export MPIFC=${MPI_HOME}/bin/mpifort
+
+    export PATH="${GCC_ROOT}/bin:${CMAKE_ROOT}/bin:${NVHPC_ROOT}/compilers/bin:${CUDA_HOME}/bin:${MPI_HOME}/bin:${UCX_ROOT}/bin:${NVSHMEM_HOME}/bin:${PATH}"
+
+    export LD_LIBRARY_PATH="${GCC_ROOT}/lib64:${NVHPC_ROOT}/compilers/lib:${CUDA_HOME}/lib64:${MPI_HOME}/lib:${UCX_ROOT}/lib:${NVSHMEM_HOME}/lib:${CUFFTMP_ROOT}/lib/13:${LD_LIBRARY_PATH:-}"
+
+    # ----------------------------------------------------------------------
+    # Verify the toolchain
+    # ----------------------------------------------------------------------
+
+    echo
+    echo "C compiler:"
+    "${CC}" --version
+
+    echo
+    echo "C++ compiler:"
+    "${CXX}" --version
+
+    echo
+    echo "CUDA compiler:"
+    nvcc --version
+
+    echo
+    echo "MPI C wrapper:"
+    "${MPICC}" --showme:command
+
+    echo
+    echo "MPI C++ wrapper:"
+    "${MPICXX}" --showme:command
+
+    echo
+    echo "cuFFTMp:"
+    test -f "${CUFFTMP_ROOT}/include/cufftMp.h"
+    test -f "${CUFFTMP_ROOT}/lib/13/libcufftMp.so"
+
+    # ----------------------------------------------------------------------
+    # Extract GROMACS
+    # ----------------------------------------------------------------------
+
+    rm -rf \
+        "${GMX_SOURCE}" \
+        "${GMX_BUILD}" \
+        "${GMX_INSTALL}"
+
+    mkdir -p \
+        "${GMX_SOURCE}" \
+        "${GMX_BUILD}"
+
+    tar \
+        --no-same-owner \
+        --no-same-permissions \
+        -xzf /tmp/gromacs-2026.1.tar.gz \
+        -C "${GMX_SOURCE}" \
+        --strip-components=1
+
+    test -f "${GMX_SOURCE}/CMakeLists.txt"
+
+    # ----------------------------------------------------------------------
+    # Configure GROMACS
+    # ----------------------------------------------------------------------
+
+    echo
+    echo "========================================================"
+    echo "Configuring GROMACS"
+    echo "========================================================"
+
+    cmake \
+        -S "${GMX_SOURCE}" \
+        -B "${GMX_BUILD}" \
+        -D CMAKE_BUILD_TYPE=Release \
+        -D CMAKE_INSTALL_PREFIX="${GMX_INSTALL}" \
+        -D CMAKE_INSTALL_LIBDIR=lib64 \
+        \
+        -D CMAKE_C_COMPILER="${CC}" \
+        -D CMAKE_CXX_COMPILER="${CXX}" \
+        -D GMX_GPLUSPLUS_PATH="${GCC_ROOT}/bin/g++" \
+        \
+        -D MPI_C_COMPILER="${MPICC}" \
+        -D MPI_CXX_COMPILER="${MPICXX}" \
+        -D MPIEXEC_EXECUTABLE="${MPI_HOME}/bin/mpirun" \
+        \
+        -D CMAKE_CUDA_COMPILER="${CUDA_HOME}/bin/nvcc" \
+        -D CMAKE_CUDA_ARCHITECTURES=80 \
+        -D CUDAToolkit_ROOT="${CUDA_HOME}" \
+        \
+        -D GMX_MPI=ON \
+        -D GMX_THREAD_MPI=OFF \
+        -D GMX_OPENMP=ON \
+        \
+        -D GMX_GPU=CUDA \
+        -D GMX_USE_CUFFTMP=ON \
+        -D cuFFTMp_INCLUDE_DIR="${CUFFTMP_ROOT}/include" \
+        -D cuFFTMp_LIBRARY="${CUFFTMP_ROOT}/lib/13/libcufftMp.so" \
+        \
+        -D GMX_BUILD_OWN_FFTW=ON \
+        -D GMX_FFT_LIBRARY=fftw3 \
+        \
+        -D GMX_DOUBLE=OFF \
+        -D GMX_BUILD_MDRUN_ONLY=OFF \
+        -D GMXAPI=OFF \
+        -D REGRESSIONTEST_DOWNLOAD=OFF
+
+    # ----------------------------------------------------------------------
+    # Show the important configuration
+    # ----------------------------------------------------------------------
+
+    echo
+    echo "========================================================"
+    echo "GROMACS configuration"
+    echo "========================================================"
+
+    grep -E \
+        '^(CMAKE_C_COMPILER:|CMAKE_CXX_COMPILER:|CMAKE_CUDA_COMPILER:|CMAKE_CUDA_ARCHITECTURES:|MPI_C_COMPILER:|MPI_CXX_COMPILER:|GMX_MPI:|GMX_OPENMP:|GMX_GPU:|GMX_USE_CUFFTMP:|cuFFTMp_ROOT:)' \
+        "${GMX_BUILD}/CMakeCache.txt" || true
+
+    # ----------------------------------------------------------------------
+    # Build and install
+    # ----------------------------------------------------------------------
+
+    echo
+    echo "========================================================"
+    echo "Compiling GROMACS"
+    echo "========================================================"
+
+    cmake \
+        --build "${GMX_BUILD}" \
+        --parallel "$(nproc)"
+
+    echo
+    echo "========================================================"
+    echo "Installing GROMACS"
+    echo "========================================================"
+
+    cmake \
+        --install "${GMX_BUILD}"
+
+    # ----------------------------------------------------------------------
+    # Verify installation
+    # ----------------------------------------------------------------------
+
+    test -x "${GMX_INSTALL}/bin/gmx_mpi"
+    test -f "${GMX_INSTALL}/bin/GMXRC"
+
+    echo
+    echo "Installed executable:"
+    ls -lh "${GMX_INSTALL}/bin/gmx_mpi"
+
+    # ----------------------------------------------------------------------
+    # Remove source and build directories
+    # ----------------------------------------------------------------------
+
+    rm -rf \
+        "${GMX_SOURCE}" \
+        "${GMX_BUILD}" \
+        /tmp/gromacs-2026.1.tar.gz
+
+    echo
+    echo "========================================================"
+    echo "GROMACS 2026.1 installation complete"
+    echo "========================================================"
+
+%test
+
+    set -e
+
+    echo "========== GROMACS =========="
+
+    test -x /opt/gromacs/bin/gmx_mpi
+    test -f /opt/gromacs/bin/GMXRC
+
+    /opt/gromacs/bin/gmx_mpi --version || true
+
+    echo
+    echo "========== Library dependencies =========="
+
+    ldd /opt/gromacs/bin/gmx_mpi || true
+
+    missing="$(
+        ldd /opt/gromacs/bin/gmx_mpi |
+        grep "not found" |
+        grep -Ev "libcuda\.so\.1|libnvidia-ml\.so\.1" || true
+    )"
+
+    if [ -n "${missing}" ]; then
+        echo
+        echo "ERROR: unresolved non-driver libraries:"
+        echo "${missing}"
+        exit 1
+    fi
+
+    echo
+    echo "All non-driver libraries are resolved."
+    echo "GPU driver libraries will be injected with --nv."
+
