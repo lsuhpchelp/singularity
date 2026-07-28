@@ -1,0 +1,268 @@
+Bootstrap: localimage
+From: /home/oleg/Programs/Containers/LAMMPS/sand_box/intel-2025.3-intel-mpi-2021.18-qt-6.0-cuda-12.2.sif 
+
+%labels
+    Author Oleg Starovoytov
+    Description LAMMPS built with Intel oneAPI, Intel MPI, OpenMP, and the most.cmake preset
+    LAMMPS_Version 29Aug2024
+
+%environment
+
+    # -------------------------------------------------------------------------
+    # LAMMPS runtime environment
+    # -------------------------------------------------------------------------
+    export LAMMPS_ROOT=/opt/lammps
+
+    export CUDA_HOME=/opt/cuda-12.2
+    export CUDA_ROOT=/opt/cuda-12.2
+    export CUDAToolkit_ROOT=/opt/cuda-12.2
+
+    # Executables
+    export PATH=/opt/intel/oneapi/compiler/latest/bin:${PATH}
+    export PATH=/opt/intel/oneapi/mpi/latest/bin:${PATH}
+    export PATH=/opt/cuda-12.2/bin:${PATH}
+    export PATH=/opt/lammps/bin:${PATH}
+
+    # Runtime libraries
+    export LD_LIBRARY_PATH=/opt/intel/oneapi/compiler/latest/opt/compiler/lib:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=/opt/intel/oneapi/compiler/latest/lib/x64:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/intel/oneapi/compiler/latest/lib:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/intel/oneapi/mkl/latest/lib:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/intel/oneapi/mpi/latest/lib:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/cuda-12.2/lib64:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/lammps/lib:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH=/opt/lammps/lib64:${LD_LIBRARY_PATH}
+
+    # With singularity exec --nv, the real host NVIDIA driver libraries
+    # are mounted here. This must be the last assignment so it becomes first.
+    export LD_LIBRARY_PATH=/.singularity.d/libs:${LD_LIBRARY_PATH}
+
+    # Compile-time paths for software built interactively inside the container
+    export LIBRARY_PATH=/opt/cuda-12.2/lib64:${LIBRARY_PATH:-}
+    export CPATH=/opt/cuda-12.2/include:${CPATH:-}
+
+    # Threading defaults
+    export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+    export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
+    export OMP_DYNAMIC="${OMP_DYNAMIC:-FALSE}"
+    export OMP_PLACES="${OMP_PLACES:-cores}"
+    export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
+
+%post
+    set -e
+
+    # -------------------------------------------------------------------------
+    # Load Intel oneAPI environment inherited from the base SIF
+    # -------------------------------------------------------------------------
+    export OCL_ICD_FILENAMES="${OCL_ICD_FILENAMES:-}"
+    . /opt/intel/oneapi/setvars.sh --force >/dev/null 2>&1
+
+    # Make Intel runtime libraries visible during configuration, build,
+    # installation, and dependency scanning.
+    export PATH="/opt/intel/oneapi/mpi/latest/bin:${PATH}"
+
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/lib:${LD_LIBRARY_PATH:-}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/lib/x64:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/opt/compiler/lib:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/mkl/latest/lib:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:${LD_LIBRARY_PATH}"
+
+    # -------------------------------------------------------------------------
+    # LAMMPS locations
+    # -------------------------------------------------------------------------
+    export LAMMPS_VERSION=stable_29Aug2024_update4
+    export LAMMPS_SOURCE=/opt/lammps-source
+    export LAMMPS_INSTALL=/opt/lammps
+
+    rm -rf "${LAMMPS_SOURCE}" "${LAMMPS_INSTALL}"
+
+    # -------------------------------------------------------------------------
+    # Download LAMMPS
+    # -------------------------------------------------------------------------
+    git clone \
+        --depth 1 \
+        --branch "${LAMMPS_VERSION}" \
+        https://github.com/lammps/lammps.git \
+        "${LAMMPS_SOURCE}"
+
+    mkdir -p "${LAMMPS_SOURCE}/build"
+
+    # -------------------------------------------------------------------------
+# Configure with most.cmake
+# -------------------------------------------------------------------------
+    cmake \
+        -S "${LAMMPS_SOURCE}/cmake" \
+        -B "${LAMMPS_SOURCE}/build" \
+        -C "${LAMMPS_SOURCE}/cmake/presets/most.cmake" \
+        -D CMAKE_BUILD_TYPE=Release \
+        -D CMAKE_INSTALL_PREFIX="${LAMMPS_INSTALL}" \
+        -D CMAKE_C_COMPILER=/opt/intel/oneapi/mpi/latest/bin/mpiicx \
+        -D CMAKE_CXX_COMPILER=/opt/intel/oneapi/mpi/latest/bin/mpiicpx \
+        -D CMAKE_Fortran_COMPILER=/opt/intel/oneapi/mpi/latest/bin/mpiifx \
+        -D CMAKE_CUDA_COMPILER=/opt/cuda-12.2/bin/nvcc \
+        -D CUDAToolkit_ROOT=/opt/cuda-12.2 \
+        -D CMAKE_EXE_LINKER_FLAGS="-Wl,--unresolved-symbols=ignore-in-shared-libs -Wl,-rpath-link,/opt/cuda-12.2/targets/x86_64-linux/lib/stubs" \
+        -D CMAKE_SHARED_LINKER_FLAGS="-Wl,-rpath-link,/opt/cuda-12.2/targets/x86_64-linux/lib/stubs" \
+        -D CMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+        -D CMAKE_INSTALL_RPATH="/opt/lammps/lib64;/opt/lammps/lib;/opt/fftw/lib;/opt/cuda-12.2/lib64;/opt/intel/oneapi/mpi/latest/lib;/opt/intel/oneapi/mkl/latest/lib;/opt/intel/oneapi/compiler/latest/lib;/opt/intel/oneapi/compiler/latest/opt/compiler/lib" \
+        -D CMAKE_CXX_STANDARD=17 \
+        -D BUILD_MPI=ON \
+        -D BUILD_OMP=ON \
+        -D PKG_OPENMP=ON \
+        -D BUILD_SHARED_LIBS=ON \
+        -D BUILD_TOOLS=yes \
+        -D BUILD_LAMMPS_GUI=no \
+        -D PKG_OPENMP=ON \
+        -D PKG_GPU=ON \
+        -D GPU_API=cuda \
+        -D GPU_ARCH=sm_80 \
+        -D FFT=FFTW3 \
+        -D BUILD_WHAM=OFF \
+        -D BUILD_LAMMPS_GUI=ON \
+        -D LAMMPS_EXCEPTIONS=ON \
+        -D PKG_MOLECULE=ON \
+        -D PKG_KSPACE=ON \
+        -D WITH_FFMPEG=OFF \
+        -D PKG_MBX=ON \
+        -D PKG_ML_POD=ON \
+        -D PKG_H5MD=ON \
+        -D PKG_NETCDF=ON \
+        -D PKG_KOKKOS=OFF
+
+    # Make libraries visible to the CMake installation dependency scanner
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/lib:${LD_LIBRARY_PATH:-}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/lib/x64:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/opt/compiler/lib:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/mkl/latest/lib:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="/opt/intel/oneapi/mpi/latest/lib:${LD_LIBRARY_PATH}"
+
+    # -------------------------------------------------------------------------
+    # Build and install
+    # -------------------------------------------------------------------------
+    cmake \
+        --build "${LAMMPS_SOURCE}/build" \
+        --parallel "$(nproc)"
+
+    cmake \
+        --install "${LAMMPS_SOURCE}/build"
+
+    # Remove CUDA driver stubs from the installed runtime libraries
+    rm -f /opt/lammps/lib/libcuda.so
+    rm -f /opt/lammps/lib/libcuda.so.1
+    rm -f /opt/lammps/lib64/libcuda.so
+    rm -f /opt/lammps/lib64/libcuda.so.1
+
+    # Remove the temporary CUDA stub SONAME
+    # rm -f /opt/cuda-12.2/targets/x86_64-linux/lib/stubs/libcuda.so.1
+    # rm -f /opt/cuda-12.2/lib64/stubs/libcuda.so.1 2>/dev/null || true
+
+    # Never package the CUDA driver stub with LAMMPS.
+    # The real NVIDIA driver library must come from the host through --nv.
+    find /opt/lammps \
+        \( -type f -o -type l \) \
+        -name 'libcuda.so*' \
+        -delete
+
+# Register the installed LAMMPS shared-library directory
+cat > /etc/ld.so.conf.d/lammps.conf <<'EOF'
+/opt/lammps/lib
+/opt/lammps/lib64
+EOF
+
+    ldconfig
+    # -------------------------------------------------------------------------
+    # Provide lmp_mpi command
+    # -------------------------------------------------------------------------
+    test -x "${LAMMPS_INSTALL}/bin/lmp"
+    ln -snf lmp "${LAMMPS_INSTALL}/bin/lmp_mpi"
+
+    # -------------------------------------------------------------------------
+    # Verify installation without running CUDA
+    # -------------------------------------------------------------------------
+    test -x "${LAMMPS_INSTALL}/bin/lmp"
+    test -x "${LAMMPS_INSTALL}/bin/lmp_mpi"
+
+    check_dependencies()
+    {
+        executable="$1"
+
+        missing="$(
+            ldd "${executable}" 2>/dev/null |
+            awk '/not found/ {print $1}' |
+            grep -v '^libcuda\.so' || true
+        )"
+
+        if [ -n "${missing}" ]; then
+            echo "ERROR: unresolved dependencies for ${executable}:"
+            printf '%s\n' "${missing}"
+            ldd "${executable}" || true
+            exit 1
+        fi
+    }
+
+    check_dependencies "${LAMMPS_INSTALL}/bin/lmp"
+    check_dependencies "${LAMMPS_INSTALL}/bin/lmp_mpi"
+
+    # Ensure no CUDA driver stub was copied into the LAMMPS installation.
+    if find "${LAMMPS_INSTALL}" \
+        \( -type f -o -type l \) \
+        -name 'libcuda.so*' \
+        -print -quit |
+        grep -q .; then
+
+        echo "ERROR: CUDA driver stub was copied into ${LAMMPS_INSTALL}"
+        find "${LAMMPS_INSTALL}" -name 'libcuda.so*' -print
+        exit 1
+    fi
+
+    echo "LAMMPS installation checks passed."
+    echo "The real libcuda.so.1 must be provided at runtime with --nv."
+
+    # -------------------------------------------------------------------------
+    # Remove source and build files
+    # -------------------------------------------------------------------------
+    rm -rf "${LAMMPS_SOURCE}"
+
+%test
+    set -e
+
+    export OCL_ICD_FILENAMES="${OCL_ICD_FILENAMES:-}"
+    . /opt/intel/oneapi/setvars.sh --force >/dev/null 2>&1
+
+    export PATH=/opt/lammps/bin:${PATH}
+    export LD_LIBRARY_PATH=/opt/lammps/lib64:/opt/lammps/lib:${LD_LIBRARY_PATH:-}
+
+    echo "LAMMPS most.cmake build test passed."
+
+%runscript
+    exec /opt/lammps/bin/lmp_mpi "$@"
+
+%help
+    LAMMPS stable_29Aug2024
+    Built with CUDA 12.2 and Intel oneAPI Compilers, Intel MPI, Intel MKL, and OpenMP.
+
+    Executables
+    -----------
+    /opt/lammps/bin/lmp_mpi
+
+    The command lmp_mpi is a symbolic link to lmp. Both names invoke the
+    same MPI-enabled GPU LAMMPS executable.
+
+    Shared libraries
+    ----------------
+    /opt/lammps/lib64/liblammps.so
+    /opt/lammps/lib64/liblammps.so.0
+
+    Display version and installed packages
+    --------------------------------------
+    apptainer exec <container>.sif lmp_mpi -h
+
+    Run an MPI job using GPU  
+    ----------------
+    srun  -N "$SLURM_NNODES" -n "$SLURM_NTASKS" \
+         singularity exec --nv --bind "$PWD:$PWD" \
+       --pwd "$PWD" /project/containers/images/<container>.sif /opt/lammps/bin/lmp_mpi \
+        -sf gpu \
+        -pk gpu <X> \
+        -in lj.in > output.out
+
