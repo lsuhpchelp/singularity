@@ -1,0 +1,91 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+Author fchen14@lsu.edu
+
+%files
+
+src/v6.6/vasp.6.6.1.tgz                  /opt/
+
+%post
+
+# VASP automatic license-validation settings.
+# If a cluster-specific suffix is required, append it to HPC_LICENSE, for
+# example: WA25-0004@cluster01
+HPC_LICENSE='WA25-0004'
+REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+
+dnf install -y perl-ExtUtils-MakeMaker
+dnf install -y wget hwloc
+dnf install -y environment-modules
+dnf install -y rsync
+dnf install -y hdf5-devel
+dnf install -y openssl-devel
+# https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
+
+# compile and install slurm
+cd /opt
+wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+tar zxf slurm-22-05-8-1.tar.gz
+cd slurm-slurm-22-05-8-1
+./configure --prefix=/usr --libdir=/usr/lib64 && make -j20 && make install
+cd contribs && make -j20 && make install
+
+# need to source the line or module command wont be available
+source /etc/profile.d/modules.sh
+/opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler mpi mkl
+
+# install HDF5
+mkdir /opt/packages
+cd /opt/packages
+wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+tar -xf hdf5-1.14.4-3.tar.gz && rm hdf5-1.14.4-3.tar.gz
+cd hdf5-1.14.4-3
+CC=icx CXX=icpx FC=ifx ./configure --prefix=/usr/ --with-zlib=/usr --enable-fortran
+make -j`nproc` && make install
+
+cd /opt
+tar zxf vasp.6.6.1.tgz
+cd vasp.6.6.1
+
+# enable HDF5 and MKL cluster support
+cp arch/makefile.include.oneapi_omp ./makefile.include
+sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
+sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
+sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
+sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
+sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
+
+# enable automatic license validation and OpenSSL signature verification
+printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+    "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+printf 'LLIBS      += -lcrypto -lssl\n' >> makefile.include
+
+# fail the build early if the expected license-validation settings were not added
+grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+grep -F -- "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" makefile.include
+grep -F -- '-lcrypto -lssl' makefile.include
+
+# for VTST
+
+
+
+
+# build VASP
+make veryclean
+make DEPS=1 -j64
+
+%environment
+export LC_ALL=C
+source /etc/profile.d/modules.sh
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler mpi mkl
+export PATH=/opt/vasp.6.6.1/bin:$PATH
+export LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
+
+%runscript
+exec "$@"
+
