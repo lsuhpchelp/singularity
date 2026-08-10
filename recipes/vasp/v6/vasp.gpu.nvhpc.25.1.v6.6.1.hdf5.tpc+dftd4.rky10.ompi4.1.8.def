@@ -413,7 +413,8 @@ From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
     opt.o \\' src/.objects
     sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' \
         src/main.F
-    sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+    #sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+    sed -i '1175c\      CALL chain_init( T_INFO, IO)' src/main.F
 
     # Parse the VTST object list before the full three-target build.
     if ! {

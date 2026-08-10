@@ -299,7 +299,8 @@ From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
     ml_pyamff.o \\\
     opt.o \\' src/.objects
     sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
-    sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+    #sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+    sed -i '1175c\      CALL chain_init( T_INFO, IO)' src/main.F
 
     # VASPsol. The 6.6.0 patch has been reported as CPU/VTST compatible; the
     # dry run deliberately stops this 6.6.1 build if either patched file moved.
