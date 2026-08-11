@@ -1,0 +1,223 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+Author fchen14@lsu.edu
+
+%files
+
+src/v6.6/vasp.6.6.1.tgz                  /opt/
+
+%post
+
+# VASP automatic license-validation settings.
+# If a cluster-specific suffix is required, append it to HPC_LICENSE, for
+# example: WA25-0004@cluster01
+HPC_LICENSE='WA25-0004'
+REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+WANNIER90_VERSION='3.1.0'
+WANNIER90_COMMIT='1d6b187374a2d50b509e5e79e2cab01a79ff7ce1'
+WANNIER90_ROOT='/opt/vasp-tpc'
+
+#for f in /etc/yum.repos.d/*intel*repo /etc/yum.repos.d/*oneAPI*repo /etc/yum.repos.d/*oneapi*repo; do
+#    [ -f "$f" ] && sed -i 's/enabled=1/enabled=0/g' "$f"
+#done
+
+dnf install -y perl-ExtUtils-ParseXS perl-ExtUtils-MakeMaker
+dnf install -y perl-devel
+#dnf install -y epel-release
+#dnf config-manager --set-enabled crb  # Formerly "PowerTools" in EL9
+# for pmi2 support, we need hwloc slurm slurm-devel
+dnf install -y wget hwloc #slurm slurm-devel
+# environment-modules to work with oneapi-hpckit
+dnf install -y environment-modules
+dnf install -y rsync
+dnf install -y openssl-devel
+
+# compile and install slurm
+cd /opt
+wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+tar zxf slurm-22-05-8-1.tar.gz
+cd slurm-slurm-22-05-8-1
+./configure --prefix=/usr --libdir=/usr/lib64 && make -j20 && make install
+cd contribs && make -j20 && make install
+
+# https://thelinuxcluster.com/2022/05/14/installing-environment-modules-on-rocky-linux-8-5/
+# need to source the line or module command wont be available
+source /etc/profile.d/modules.sh
+
+dnf install -y 'dnf-command(config-manager)'
+#dnf config-manager --add-repo https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+#dnf install -y nvhpc-cuda-multi-26.3
+dnf config-manager --add-repo https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+dnf install -y nvhpc-26-3-cuda-multi
+
+module load /opt/nvidia/hpc_sdk/modulefiles/nvhpc/26.3
+
+cd /opt
+wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.8.tar.bz2
+tar jxf openmpi-4.1.8.tar.bz2
+cd openmpi-4.1.8
+# install pmix enabled openmpi
+export cuda=/opt/nvidia/hpc_sdk/Linux_x86_64/26.3/cuda
+dest=/opt/nvidia/hpc_sdk/Linux_x86_64/26.3/comm_libs/openmpi/openmpi-4.1.8/
+mkdir -p build
+cd build
+CC=nvc CXX=nvc++ FC=nvfortran CFLAGS=-fPIC CXXFLAGS=-fPIC FCFLAGS=-fPIC \
+FCFLAGS="-Mstandard -fPIC" CFLAGS=-fPIC CXXFLAGS=-fPIC \
+  ../configure --with-hwloc=internal --enable-mpirun-prefix-by-default \
+  --prefix=$dest --with-pmi=/usr \
+  --with-slurm \
+  --without-verbs \
+  --with-cuda=$cuda
+make -j$(nproc)
+make install
+
+# install HDF5
+mkdir /opt/packages
+cd /opt/packages
+wget https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+tar -xf hdf5-1.14.4-3.tar.gz && rm hdf5-1.14.4-3.tar.gz
+cd hdf5-1.14.4-3
+CC=nvc CXX=nvc++ FC=nvfortran ./configure --prefix=/usr/ --with-zlib=/usr --enable-fortran
+make -j`nproc` && make install
+
+mkdir -p /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/
+#cp /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi3/26.3 /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
+cp /opt/nvidia/hpc_sdk/modulefiles/nvhpc-hpcx-cuda13/26.3 /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
+
+# change the modulefile to add openmpi-4.1.8
+ompi_modulefile=/opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
+sed -i '/^set nvcommdir/a\
+set nvompidir $nvhome/$target/$version/comm_libs/openmpi/openmpi-4.1.8' $ompi_modulefile
+sed -i '/^prepend-path PATH \$nvcompdir\/extras\/qd\/bin/a\
+prepend-path PATH $nvompidir/bin' $ompi_modulefile
+sed -i '/^prepend-path LD_LIBRARY_PATH \$nvcommdir\/nvshmem\/lib/a\
+prepend-path LD_LIBRARY_PATH $nvompidir/lib' $ompi_modulefile
+sed -i '/^prepend-path CPATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path CPATH $nvompidir/include' $ompi_modulefile
+sed -i '/^prepend-path C_INCLUDE_PATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path C_INCLUDE_PATH $nvompidir/include' $ompi_modulefile
+sed -i '/^prepend-path CPLUS_INCLUDE_PATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path CPLUS_INCLUDE_PATH $nvompidir/include' $ompi_modulefile
+sed -i '66,71 s/^/#/' $ompi_modulefile
+
+module load /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
+
+# build and install the serial Wannier90 3.1.0 library for VASP
+cd /opt
+git init "wannier90-${WANNIER90_VERSION}"
+git -C "wannier90-${WANNIER90_VERSION}" remote add origin \
+    https://github.com/wannier-developers/wannier90.git
+git -C "wannier90-${WANNIER90_VERSION}" fetch --depth 1 origin \
+    "$WANNIER90_COMMIT"
+git -C "wannier90-${WANNIER90_VERSION}" checkout --detach FETCH_HEAD
+test "$(git -C "wannier90-${WANNIER90_VERSION}" rev-parse HEAD)" = \
+    "$WANNIER90_COMMIT"
+cd "wannier90-${WANNIER90_VERSION}"
+cp config/make.inc.pgf90 make.inc
+sed -i 's/^F90[[:space:]]*=.*/F90 = nvfortran/' make.inc
+sed -i '/^[[:space:]]*COMMS[[:space:]]*=/d; /^[[:space:]]*MPIF90[[:space:]]*=/d' make.inc
+sed -i 's/^FCOPTS[[:space:]]*=.*/FCOPTS = -O3 -fPIC/' make.inc
+sed -i 's/^LDOPTS[[:space:]]*=.*/LDOPTS = -O3/' make.inc
+make -j$(nproc) lib
+install -D -m 0644 libwannier.a "$WANNIER90_ROOT/lib/libwannier.a"
+test -s "$WANNIER90_ROOT/lib/libwannier.a"
+
+cd /opt
+git clone https://github.com/henkelmangroup/vtstcode.git
+
+cd /opt
+tar zxf vasp.6.6.1.tgz
+cd vasp.6.6.1
+cp arch/makefile.include.nvhpc_ompi_mkl_omp_acc ./makefile.include
+sed -i '22c\GPU        ?= -gpu=cc80,cc89,cuda13.1' makefile.include
+
+# enable HDF5 and MKL cluster support
+sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
+sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
+sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
+sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
+sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
+
+# enable Wannier90 support
+printf '\nCPP_OPTIONS += -DVASP2WANNIER90\n' >> makefile.include
+printf 'WANNIER90_ROOT ?= %s\n' "$WANNIER90_ROOT" >> makefile.include
+printf 'LLIBS          += -L$(WANNIER90_ROOT)/lib -lwannier\n' \
+    >> makefile.include
+
+# enable automatic license validation and OpenSSL signature verification
+printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+    "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+printf 'LLIBS      += -lcrypto -lssl\n' >> makefile.include
+
+# fail the build early if the expected license-validation settings were not added
+grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+grep -F -- "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" makefile.include
+grep -F -- '-lcrypto -lssl' makefile.include
+grep -F -- '-DVASP2WANNIER90' makefile.include
+grep -F -- '-L$(WANNIER90_ROOT)/lib -lwannier' makefile.include
+test -s "$WANNIER90_ROOT/lib/libwannier.a"
+
+# VTST for VASP 6.6.1
+cp -r /opt/vtstcode/vtstcode6.6.1/* src/
+
+sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
+sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
+
+sed -i '/chain.o/i\
+    bfgs.o \\\
+    dynmat.o \\\
+    instanton.o \\\
+    lbfgs.o \\\
+    sd.o \\\
+    cg.o \\\
+    dimer.o \\\
+    bbm.o \\\
+    fire.o \\\
+    lanczos.o \\\
+    neb.o \\\
+    qm.o \\\
+    pyamff_fortran/*.o \\\
+    ml_pyamff.o \\\
+    opt.o \\' src/.objects
+
+sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
+sed -i '1175c\      CALL chain_init( T_INFO, IO)' src/main.F
+
+/opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler
+module load mkl
+
+# build VASP
+make veryclean
+make DEPS=1 -j16
+
+# verify all three VASP executables before removing the build tree
+for executable in vasp_std vasp_gam vasp_ncl; do
+    test -x "/opt/vasp.6.6.1/bin/$executable"
+done
+
+# keep only the compiled binaries
+test -d /opt/vasp.6.6.1/bin
+find /opt/vasp.6.6.1 \
+    -mindepth 1 -maxdepth 1 \
+    ! -name bin \
+    -exec rm -rf -- {} +
+
+rm -rf /opt/vasp.6.6.1.tgz
+
+%environment
+export LC_ALL=C
+source /etc/profile.d/modules.sh
+export MODULEPATH=/opt/nvidia/hpc_sdk/modulefiles/:$MODULEPATH
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load nvhpc-openmpi4/26.3
+module load compiler
+module load mkl
+export PATH=/opt/vasp.6.6.1/bin:$PATH
+export LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
+
+%runscript
+exec "$@"
