@@ -6,7 +6,7 @@ Author fchen14@lsu.edu
 
 %files
 
-src/v6.6/vasp.6.6.0.tgz                  /opt/
+src/v6.6/vasp.6.6.1.tgz                  /opt/
 
 %post
 
@@ -96,11 +96,8 @@ sed -i '66,71 s/^/#/' $ompi_modulefile
 module load /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
 
 cd /opt
-git clone https://github.com/henkelmangroup/vtstcode.git
-
-cd /opt
-tar zxf vasp.6.6.0.tgz
-cd vasp.6.6.0
+tar zxf vasp.6.6.1.tgz
+cd vasp.6.6.1
 cp arch/makefile.include.nvhpc_ompi_mkl_omp_acc ./makefile.include
 sed -i '22c\GPU        ?= -gpu=cc80,cc89,cuda13.1' makefile.include
 
@@ -111,33 +108,6 @@ sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.includ
 sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
 sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
 sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
-
-# VTST for VASP 6.6.0
-cp -r /opt/vtstcode/vtstcode6.6.0/* src/
-
-sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
-sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
-
-sed -i '/chain.o/i\
-    bfgs.o \\\
-    dynmat.o \\\
-    instanton.o \\\
-    lbfgs.o \\\
-    sd.o \\\
-    cg.o \\\
-    dimer.o \\\
-    bbm.o \\\
-    fire.o \\\
-    lanczos.o \\\
-    neb.o \\\
-    qm.o \\\
-    pyamff_fortran/*.o \\\
-    ml_pyamff.o \\\
-    opt.o \\' src/.objects
-
-sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
-sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
-
 
 /opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
 export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
@@ -157,7 +127,8 @@ export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
 module load nvhpc-openmpi4/26.3
 module load compiler
 module load mkl
-export PATH=/opt/vasp.6.6.0/bin:$PATH
+export PATH=/opt/vasp.6.6.1/bin:$PATH
+export LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
 
 %runscript
 exec "$@"

@@ -6,9 +6,15 @@ Author fchen14@lsu.edu
 
 %files
 
-src/v6.6/vasp.6.6.0.tgz                  /opt/
+src/v6.6/vasp.6.6.1.tgz                  /opt/
 
 %post
+
+# VASP automatic license-validation settings.
+# If a cluster-specific suffix is required, append it to HPC_LICENSE, for
+# example: WA25-0004@cluster01
+HPC_LICENSE='WA25-0004'
+REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
 
 #for f in /etc/yum.repos.d/*intel*repo /etc/yum.repos.d/*oneAPI*repo /etc/yum.repos.d/*oneapi*repo; do
 #    [ -f "$f" ] && sed -i 's/enabled=1/enabled=0/g' "$f"
@@ -23,6 +29,7 @@ dnf install -y wget hwloc #slurm slurm-devel
 # environment-modules to work with oneapi-hpckit
 dnf install -y environment-modules
 dnf install -y rsync
+dnf install -y openssl-devel
 
 # compile and install slurm
 cd /opt
@@ -72,7 +79,6 @@ cd hdf5-1.14.4-3
 CC=nvc CXX=nvc++ FC=nvfortran ./configure --prefix=/usr/ --with-zlib=/usr --enable-fortran
 make -j`nproc` && make install
 
-
 mkdir -p /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/
 #cp /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi3/26.3 /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
 cp /opt/nvidia/hpc_sdk/modulefiles/nvhpc-hpcx-cuda13/26.3 /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
@@ -96,28 +102,80 @@ sed -i '66,71 s/^/#/' $ompi_modulefile
 module load /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/26.3
 
 cd /opt
-tar zxf vasp.6.6.0.tgz
-cd vasp.6.6.0
+git clone https://github.com/henkelmangroup/vtstcode.git
+
+cd /opt
+tar zxf vasp.6.6.1.tgz
+cd vasp.6.6.1
 cp arch/makefile.include.nvhpc_ompi_mkl_omp_acc ./makefile.include
 sed -i '22c\GPU        ?= -gpu=cc80,cc89,cuda13.1' makefile.include
 
-# enable hdf5 and also qmkl
-#cp arch/makefile.include.oneapi_omp ./makefile.include
+# enable HDF5 and MKL cluster support
 sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
 sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
 sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
 sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
 sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
 
+# enable automatic license validation and OpenSSL signature verification
+printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+    "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+printf 'LLIBS      += -lcrypto -lssl\n' >> makefile.include
+
+# fail the build early if the expected license-validation settings were not added
+grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+grep -F -- "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" makefile.include
+grep -F -- '-lcrypto -lssl' makefile.include
+
+# VTST for VASP 6.6.1
+cp -r /opt/vtstcode/vtstcode6.6.1/* src/
+
+sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
+sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
+
+sed -i '/chain.o/i\
+    bfgs.o \\\
+    dynmat.o \\\
+    instanton.o \\\
+    lbfgs.o \\\
+    sd.o \\\
+    cg.o \\\
+    dimer.o \\\
+    bbm.o \\\
+    fire.o \\\
+    lanczos.o \\\
+    neb.o \\\
+    qm.o \\\
+    pyamff_fortran/*.o \\\
+    ml_pyamff.o \\\
+    opt.o \\' src/.objects
+
+#sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
+#sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+
+sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
+sed -i '1175c\      CALL chain_init( T_INFO, IO)' src/main.F
+
 /opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
 export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
 module load compiler
 module load mkl
-#
-## build vasp
+
+# build VASP
 make veryclean
 make DEPS=1 -j16
-##make test
+
+# verify all three VASP executables before removing the build tree
+for executable in vasp_std vasp_gam vasp_ncl; do
+    test -x "/opt/vasp.6.6.1/bin/$executable"
+done
+
+# keep only the compiled binaries
+test -d /opt/vasp.6.6.1/bin
+find /opt/vasp.6.6.1 \
+    -mindepth 1 -maxdepth 1 \
+    ! -name bin \
+    -exec rm -rf -- {} +
 
 %environment
 export LC_ALL=C
@@ -127,9 +185,8 @@ export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
 module load nvhpc-openmpi4/26.3
 module load compiler
 module load mkl
-export PATH=/opt/vasp.6.6.0/bin:$PATH
+export PATH=/opt/vasp.6.6.1/bin:$PATH
 export LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
 
 %runscript
 exec "$@"
-

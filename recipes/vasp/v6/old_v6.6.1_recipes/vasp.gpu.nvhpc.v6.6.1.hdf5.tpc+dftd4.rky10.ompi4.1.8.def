@@ -1,0 +1,482 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+    Author fchen14@lsu.edu
+    Description VASP 6.6.1 GPU build with HDF5, VTST, Wannier90, and DFT-D4 3.7.0 support
+    ThirdPartyCodes Wannier90-3.1.0 DFT-D4-3.7.0 VTST
+    GPUStack NVHPC-26.3 CUDA-13.1 OpenMPI-4.1.8
+
+%files
+    src/v6.6/vasp.6.6.1.tgz                  /opt/
+
+%post
+    set -eu
+
+    # VASP automatic license-validation settings. If a cluster-specific
+    # suffix is required, append it to HPC_LICENSE, e.g. WA25-0004@cluster01.
+    HPC_LICENSE='WA25-0004'
+    REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+
+    VASP_VERSION='6.6.1'
+    VASP_ROOT="/opt/vasp.${VASP_VERSION}"
+    TPC_ROOT='/opt/vasp-tpc'
+    BUILD_ROOT='/opt/packages'
+    BUILD_JOBS="$(nproc)"
+    if [ "$BUILD_JOBS" -gt 16 ]; then
+        BUILD_JOBS=16
+    fi
+
+    NVHPC_VERSION='26.3'
+    NVHPC_PACKAGE_VERSION='26-3'
+    CUDA_VERSION='13.1'
+    NVHPC_ROOT="/opt/nvidia/hpc_sdk/Linux_x86_64/${NVHPC_VERSION}"
+    CUDA_ROOT="${NVHPC_ROOT}/cuda"
+    OPENMPI_VERSION='4.1.8'
+    OPENMPI_ROOT="${NVHPC_ROOT}/comm_libs/openmpi/openmpi-${OPENMPI_VERSION}"
+
+    # Pinned third-party revisions.
+    WANNIER90_VERSION='3.1.0'
+    WANNIER90_COMMIT='1d6b187374a2d50b509e5e79e2cab01a79ff7ce1'
+    # DFT-D4 3.7.0's own pinned dependency set. This avoids the
+    # multicharge 0.5.0 polymorphic MOVE_ALLOC rejected by NVFORTRAN 26.3.
+    DFTD4_VERSION='3.7.0'
+    DFTD4_COMMIT='7b2ff85a71a3630808fd8a2d972933f75b743f3c'
+    MCTC_VERSION='0.3.2'
+    MCTC_COMMIT='769fbfa1b53d300b099a5980c3fc144f3f480cff'
+    MULTICHARGE_VERSION='0.3.0'
+    MULTICHARGE_COMMIT='282626e690aa7db2aec448d9032636a5cd75f25c'
+    MSTORE_VERSION='0.3.0'
+    MSTORE_COMMIT='663245d739be0123da61c917e55116b0c3db4c74'
+    VTST_COMMIT='e34035138dded5e4436832eb2b7801247ca4c60d'
+
+    dnf install -y \
+        bzip2 cmake diffutils dnf-plugins-core \
+        environment-modules gcc gcc-c++ git gzip hwloc make ninja-build \
+        openssl-devel perl-devel perl-ExtUtils-MakeMaker \
+        perl-ExtUtils-ParseXS pkgconf-pkg-config rsync tar wget which \
+        zlib-devel
+
+    mkdir -p "$BUILD_ROOT" "$TPC_ROOT/lib" "$TPC_ROOT/include"
+
+    # Fetch one exact Git commit without retaining the complete repository
+    # history. The commit check prevents a silently changed dependency.
+    clone_pinned_commit() {
+        pinned_repo_url="$1"
+        pinned_commit="$2"
+        pinned_destination="$3"
+        git init "$pinned_destination"
+        git -C "$pinned_destination" remote add origin "$pinned_repo_url"
+        git -C "$pinned_destination" fetch --depth 1 origin "$pinned_commit"
+        git -C "$pinned_destination" checkout --detach FETCH_HEAD
+        test "$(git -C "$pinned_destination" rev-parse HEAD)" = "$pinned_commit"
+    }
+
+    # Slurm supplies PMI support to the Open MPI installation in the image.
+    cd /opt
+    wget -q https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+    echo '8c8f6a26a5d51e6c63773f2e02653eb724540ee8b360125c8d7732314ce737d6  slurm-22-05-8-1.tar.gz' | sha256sum -c -
+    tar -xzf slurm-22-05-8-1.tar.gz
+    cd slurm-slurm-22-05-8-1
+    ./configure --prefix=/usr --libdir=/usr/lib64
+    make -j "$BUILD_JOBS"
+    make install
+    make -C contribs -j "$BUILD_JOBS"
+    make -C contribs install
+
+    # NVIDIA HPC SDK 26.3 with CUDA 13.1.
+    . /etc/profile.d/modules.sh
+    dnf config-manager --add-repo \
+        https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+    dnf install -y "nvhpc-${NVHPC_PACKAGE_VERSION}-cuda-multi"
+    module load "/opt/nvidia/hpc_sdk/modulefiles/nvhpc/${NVHPC_VERSION}"
+    test -x "$NVHPC_ROOT/compilers/bin/nvfortran"
+    test -d "$CUDA_ROOT"
+
+    # Open MPI 4.1.8, compiled with NVHPC and enabled for Slurm PMI and CUDA.
+    cd /opt
+    wget -q \
+        "https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.bz2"
+    echo '466f68e3132a1dc02710cc2011fafced8336d98359fa2dae4dddcfd5719f12a9  openmpi-4.1.8.tar.bz2' | sha256sum -c -
+    tar -xjf "openmpi-${OPENMPI_VERSION}.tar.bz2"
+    cd "openmpi-${OPENMPI_VERSION}"
+    mkdir -p build
+    cd build
+    CC=nvc CXX=nvc++ FC=nvfortran \
+        CFLAGS='-fPIC' CXXFLAGS='-fPIC' FCFLAGS='-Mstandard -fPIC' \
+        ../configure \
+        --prefix="$OPENMPI_ROOT" \
+        --with-hwloc=internal \
+        --enable-mpirun-prefix-by-default \
+        --with-pmi=/usr \
+        --with-slurm \
+        --without-verbs \
+        --with-cuda="$CUDA_ROOT"
+    make -j "$BUILD_JOBS"
+    make install
+    test -x "$OPENMPI_ROOT/bin/mpif90"
+
+    # Provide a modulefile for the custom Open MPI 4.1.8 installation while
+    # retaining the remaining NVHPC/CUDA paths from the NVIDIA modulefile.
+    mkdir -p /opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4
+    cp \
+        "/opt/nvidia/hpc_sdk/modulefiles/nvhpc-hpcx-cuda13/${NVHPC_VERSION}" \
+        "/opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/${NVHPC_VERSION}"
+    ompi_modulefile="/opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/${NVHPC_VERSION}"
+    sed -i '/^set nvcommdir/a\
+set nvompidir $nvhome/$target/$version/comm_libs/openmpi/openmpi-4.1.8' \
+        "$ompi_modulefile"
+    sed -i '/^prepend-path PATH \$nvcompdir\/extras\/qd\/bin/a\
+prepend-path PATH $nvompidir/bin' "$ompi_modulefile"
+    sed -i '/^prepend-path LD_LIBRARY_PATH \$nvcommdir\/nvshmem\/lib/a\
+prepend-path LD_LIBRARY_PATH $nvompidir/lib' "$ompi_modulefile"
+    sed -i '/^prepend-path CPATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path CPATH $nvompidir/include' "$ompi_modulefile"
+    sed -i '/^prepend-path C_INCLUDE_PATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path C_INCLUDE_PATH $nvompidir/include' "$ompi_modulefile"
+    sed -i '/^prepend-path CPLUS_INCLUDE_PATH \$nvcompdir\/extras\/qd\/include\/qd/a\
+prepend-path CPLUS_INCLUDE_PATH $nvompidir/include' "$ompi_modulefile"
+    sed -i '66,71 s/^/#/' "$ompi_modulefile"
+
+    module load "/opt/nvidia/hpc_sdk/modulefiles/nvhpc-openmpi4/${NVHPC_VERSION}"
+    test "$(command -v mpif90)" = "$OPENMPI_ROOT/bin/mpif90"
+    test "$(mpif90 --showme:command)" = 'nvfortran'
+
+    # Intel MKL remains the BLAS/LAPACK implementation used by the NVHPC VASP
+    # template.
+    /opt/intel/oneapi/modulefiles-setup.sh \
+        --output-dir=/opt/intel/oneapi/modulefiles
+    export MODULEPATH="/opt/intel/oneapi/modulefiles:${MODULEPATH:-}"
+    module load compiler mkl
+    test -n "${MKLROOT:-}"
+
+    # HDF5 1.14.4.3. Its Fortran modules must be generated by nvfortran to
+    # match the VASP GPU build.
+    cd "$BUILD_ROOT"
+    wget -q https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+    echo '019ac451d9e1cf89c0482ba2a06f07a46166caf23f60fea5ef3c37724a318e03  hdf5-1.14.4-3.tar.gz' | sha256sum -c -
+    tar -xzf hdf5-1.14.4-3.tar.gz
+    cd hdf5-1.14.4-3
+    CC=nvc CXX=nvc++ FC=nvfortran ./configure \
+        --prefix=/usr \
+        --with-zlib=/usr \
+        --enable-fortran
+    make -j "$BUILD_JOBS"
+    make install
+    export LD_LIBRARY_PATH="/usr/lib:/usr/lib64:${LD_LIBRARY_PATH:-}"
+
+    # Wannier90 3.1.0. VASP requires the serial library. The PGI template is
+    # the matching upstream template for nvfortran; MPI is deliberately off.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/wannier-developers/wannier90.git \
+        "$WANNIER90_COMMIT" \
+        "$BUILD_ROOT/wannier90-${WANNIER90_VERSION}"
+    cd "wannier90-${WANNIER90_VERSION}"
+    cp config/make.inc.pgf90 make.inc
+    sed -i 's/^F90[[:space:]]*=.*/F90 = nvfortran/' make.inc
+    sed -i '/^[[:space:]]*COMMS[[:space:]]*=/d; /^[[:space:]]*MPIF90[[:space:]]*=/d' make.inc
+    sed -i 's/^FCOPTS[[:space:]]*=.*/FCOPTS = -O3 -fPIC/' make.inc
+    sed -i 's/^LDOPTS[[:space:]]*=.*/LDOPTS = -O3/' make.inc
+    make -j "$BUILD_JOBS" lib
+    install -D -m 0644 libwannier.a "$TPC_ROOT/lib/libwannier.a"
+
+    # DFT-D4 3.7.0 and its upstream-pinned dependency set. All Fortran
+    # libraries use nvfortran, matching the VASP GPU build. DFT-D4 3.7.0
+    # uses multicharge 0.3.0, whose library sources do not contain the
+    # polymorphic cache MOVE_ALLOC that fails with NVFORTRAN 26.3.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/grimme-lab/mctc-lib.git \
+        "$MCTC_COMMIT" \
+        "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}"
+    cmake -S "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}" \
+        -B "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_Fortran_COMPILER=nvfortran \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_JSON=OFF \
+        -DWITH_OpenMP=OFF
+    grep -F 'WITH_JSON:BOOL=OFF' \
+        "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build/CMakeCache.txt"
+    grep -F 'WITH_OpenMP:BOOL=OFF' \
+        "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build/CMakeCache.txt"
+    cmake --build "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build" \
+        -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/grimme-lab/mstore.git \
+        "$MSTORE_COMMIT" \
+        "$BUILD_ROOT/mstore-${MSTORE_VERSION}"
+    cmake -S "$BUILD_ROOT/mstore-${MSTORE_VERSION}" \
+        -B "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_Fortran_COMPILER=nvfortran \
+        -DCMAKE_Fortran_FLAGS='-Mbackslash -Mallocatable=03' \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBUILD_SHARED_LIBS=OFF \
+        -Dmstore-dependency-method=cmake
+    cmake --build "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build" \
+        -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/grimme-lab/multicharge.git \
+        "$MULTICHARGE_COMMIT" \
+        "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}"
+    # Guard against accidentally returning to the incompatible 0.5.0 source.
+    if grep -R -n -E 'move_alloc[[:space:]]*\([[:space:]]*tmp[[:space:]]*,[[:space:]]*cache%raw' \
+        "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/src"; then
+        echo 'Incompatible polymorphic multicharge MOVE_ALLOC found' >&2
+        exit 1
+    fi
+    cmake -S "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}" \
+        -B "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER=nvc \
+        -DCMAKE_Fortran_COMPILER=nvfortran \
+        -DCMAKE_Fortran_FLAGS='-Mbackslash -Mallocatable=03' \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBLA_VENDOR=Intel10_64lp_seq \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_OpenMP=OFF \
+        -DWITH_TESTS=OFF \
+        -Dmulticharge-dependency-method=cmake
+    cmake --build "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build" \
+        -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/dftd4/dftd4.git \
+        "$DFTD4_COMMIT" \
+        "$BUILD_ROOT/dftd4-${DFTD4_VERSION}"
+    cmake -S "$BUILD_ROOT/dftd4-${DFTD4_VERSION}" \
+        -B "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER=nvc \
+        -DCMAKE_Fortran_COMPILER=nvfortran \
+        -DCMAKE_Fortran_FLAGS='-Mbackslash -Mallocatable=03' \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBLA_VENDOR=Intel10_64lp_seq \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_API=OFF \
+        -DWITH_API_V2=OFF \
+        -DWITH_OpenMP=OFF \
+        -Ddftd4-dependency-method=cmake
+    # DFT-D4 3.7.0 has no switch to omit its unit-test targets. Build only
+    # the installed library and CLI; the module probe below validates the
+    # interface consumed by VASP.
+    cmake --build "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build" \
+        -j "$BUILD_JOBS" --target dftd4-lib dftd4-exe
+    cmake --install "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build"
+    "$TPC_ROOT/bin/dftd4" --version
+
+    export PKG_CONFIG_PATH="$TPC_ROOT/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+    test "$(pkg-config --modversion dftd4)" = "$DFTD4_VERSION"
+    test "$(pkg-config --modversion mctc-lib)" = "$MCTC_VERSION"
+    test "$(pkg-config --modversion multicharge)" = "$MULTICHARGE_VERSION"
+    test "$(pkg-config --modversion mstore)" = "$MSTORE_VERSION"
+    test -s "$TPC_ROOT/include/mctc-lib/modules/mctc_env.mod"
+
+    # Verify that nvfortran can consume both Fortran module families before
+    # starting the substantially longer VASP build.
+    printf '%s\n' \
+        'program vasp_tpc_dftd4_probe' \
+        '  use dftd4' \
+        '  use mctc_env, only : error_type' \
+        '  type(error_type), allocatable :: error' \
+        'end program vasp_tpc_dftd4_probe' \
+        > "$BUILD_ROOT/vasp_tpc_dftd4_probe.f90"
+    nvfortran $(pkg-config --cflags dftd4 mctc-lib) \
+        -c "$BUILD_ROOT/vasp_tpc_dftd4_probe.f90" \
+        -o "$BUILD_ROOT/vasp_tpc_dftd4_probe.o"
+
+    # VTST source plugin for VASP 6.6.1.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/henkelmangroup/vtstcode.git \
+        "$VTST_COMMIT" \
+        "$BUILD_ROOT/vtstcode"
+    test -d "$BUILD_ROOT/vtstcode/vtstcode6.6.1"
+
+    # Unpack and configure VASP for OpenACC GPUs.
+    cd /opt
+    tar -xzf "vasp.${VASP_VERSION}.tgz"
+    cd "$VASP_ROOT"
+    cp arch/makefile.include.nvhpc_ompi_mkl_omp_acc makefile.include
+    sed -i \
+        's|^GPU[[:space:]]*?=.*|GPU        ?= -gpu=cc80,cc89,cuda13.1|' \
+        makefile.include
+    grep -F 'GPU        ?= -gpu=cc80,cc89,cuda13.1' makefile.include
+
+    # HDF5 support. The NVHPC template already provides the MKL link settings.
+    sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' \
+        makefile.include
+    sed -i \
+        's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' \
+        makefile.include
+    sed -i \
+        's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' \
+        makefile.include
+    sed -i \
+        's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' \
+        makefile.include
+
+    # VTST for VASP 6.6.1.
+    cp -a "$BUILD_ROOT/vtstcode/vtstcode6.6.1/." src/
+    sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
+    sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
+    test "$(grep -c '^[[:space:]]*chain[.]o[[:space:]]' src/.objects)" -eq 1
+    sed -i '/^[[:space:]]*chain[.]o[[:space:]]/i\
+    bfgs.o \\\
+    dynmat.o \\\
+    instanton.o \\\
+    lbfgs.o \\\
+    sd.o \\\
+    cg.o \\\
+    dimer.o \\\
+    bbm.o \\\
+    fire.o \\\
+    lanczos.o \\\
+    neb.o \\\
+    qm.o \\\
+    pyamff_fortran/*.o \\\
+    ml_pyamff.o \\\
+    opt.o \\' src/.objects
+    sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' \
+        src/main.F
+    #sed -i '1175c\      IF (LCHAIN) CALL chain_init( T_INFO, IO)' src/main.F
+    sed -i '1175c\       CALL chain_init( T_INFO, IO)' src/main.F
+
+    # Parse the VTST object list before the full three-target build.
+    if ! {
+        printf '%s\n' \
+            'include src/.objects' \
+            '.PHONY: vasp_tpc_objects_check' \
+            'vasp_tpc_objects_check:'
+        printf '\t@:\n'
+    } | make -f - -n vasp_tpc_objects_check >/dev/null; then
+        echo 'Malformed src/.objects after adding VTST' >&2
+        nl -ba src/.objects | sed -n '150,200p' >&2
+        exit 1
+    fi
+
+    # Wannier90 and the DFT-D4 3.x API. VASP 6.6.1 requires
+    # -DDFTD4_API_V3 for DFT-D4 3.7.0 and older.
+    printf '\n# NERSC-style third-party-code (TPC) support\n' \
+        >> makefile.include
+    printf 'CPP_OPTIONS += -DVASP2WANNIER90 -DDFTD4_API_V3\n' \
+        >> makefile.include
+    printf 'TPC_ROOT       ?= /opt/vasp-tpc\n' >> makefile.include
+    printf 'WANNIER90_ROOT ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'LLIBS          += -L$(WANNIER90_ROOT)/lib -lwannier\n' \
+        >> makefile.include
+    printf 'DFTD4_ROOT     ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'INCS           += $(shell PKG_CONFIG_PATH=$(DFTD4_ROOT)/lib/pkgconfig pkg-config --cflags dftd4 mctc-lib)\n' \
+        >> makefile.include
+    printf 'LLIBS          += -L$(DFTD4_ROOT)/lib -Wl,--start-group -ldftd4 -lmulticharge -lmstore -lmctc-lib -Wl,--end-group\n' \
+        >> makefile.include
+    # Automatic license validation and OpenSSL signature verification.
+    printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+        "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+    printf 'LLIBS          += -lcrypto -lssl\n' >> makefile.include
+
+    # Fail before compilation if a GPU/TPC interface, library, or license
+    # option was accidentally omitted.
+    for vasp_tpc_flag in \
+        -DVASP_HDF5 -DVASP2WANNIER90 -DDFTD4_API_V3; do
+        grep -F -- "$vasp_tpc_flag" makefile.include
+    done
+    grep -F -- '-gpu=cc80,cc89,cuda13.1' makefile.include
+    grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+    grep -F -- "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" \
+        makefile.include
+    grep -F -- '-lcrypto -lssl' makefile.include
+    grep -F -- '-ldftd4 -lmulticharge -lmstore -lmctc-lib' makefile.include
+
+    for vasp_tpc_library in \
+        libwannier.a libdftd4.a libmulticharge.a libmstore.a libmctc-lib.a; do
+        test -s "$TPC_ROOT/lib/$vasp_tpc_library"
+    done
+
+    # Build all three VASP GPU executables.
+    make veryclean
+    make DEPS=1 -j "$BUILD_JOBS"
+
+    test -x "$VASP_ROOT/bin/vasp_std"
+    test -x "$VASP_ROOT/bin/vasp_gam"
+    test -x "$VASP_ROOT/bin/vasp_ncl"
+    for vasp_tpc_binary in vasp_std vasp_gam vasp_ncl; do
+        if ldd "$VASP_ROOT/bin/$vasp_tpc_binary" | grep -q 'not found'; then
+            echo "Unresolved runtime library in $vasp_tpc_binary" >&2
+            exit 1
+        fi
+    done
+
+    # Preserve an auditable dependency manifest outside the VASP source tree.
+    printf '%s\n' \
+        "VASP ${VASP_VERSION}" \
+        "NVHPC ${NVHPC_VERSION}" \
+        "CUDA ${CUDA_VERSION}; targets cc80,cc89" \
+        "Open MPI ${OPENMPI_VERSION}; Slurm PMI and CUDA enabled" \
+        'HDF5 1.14.4.3' \
+        "Wannier90 ${WANNIER90_VERSION} ${WANNIER90_COMMIT}" \
+        "DFT-D4 ${DFTD4_VERSION} ${DFTD4_COMMIT}; VASP flag DFTD4_API_V3" \
+        "mctc-lib ${MCTC_VERSION} ${MCTC_COMMIT}" \
+        "multicharge ${MULTICHARGE_VERSION} ${MULTICHARGE_COMMIT}" \
+        "mstore ${MSTORE_VERSION} ${MSTORE_COMMIT}" \
+        "VTST ${VTST_COMMIT}" \
+        > "$TPC_ROOT/manifest.txt"
+
+    # Keep only the compiled VASP binaries under /opt/vasp.6.6.1. The static
+    # TPC static libraries remain under /opt/vasp-tpc, and Open MPI remains
+    # under the NVHPC tree for runtime use.
+    find "$VASP_ROOT" \
+        -mindepth 1 -maxdepth 1 \
+        ! -name bin \
+        -exec rm -rf -- {} +
+
+    rm -rf "$BUILD_ROOT"
+    rm -rf "/opt/openmpi-${OPENMPI_VERSION}" \
+        "/opt/openmpi-${OPENMPI_VERSION}.tar.bz2"
+    rm -rf /opt/slurm-slurm-22-05-8-1 /opt/slurm-22-05-8-1.tar.gz
+    dnf clean all
+
+%environment
+    export LC_ALL=C
+    . /etc/profile.d/modules.sh
+    export MODULEPATH=/opt/nvidia/hpc_sdk/modulefiles:${MODULEPATH:-}
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:${MODULEPATH}
+    module load nvhpc-openmpi4/26.3
+    module load compiler mkl
+    export VASP_TPC_ROOT=/opt/vasp-tpc
+    export OMP_NUM_THREADS=1
+    export PATH=/opt/vasp.6.6.1/bin:${PATH}
+    export LD_LIBRARY_PATH=/usr/lib:/usr/lib64:${LD_LIBRARY_PATH:-}
+
+%test
+    test -x /opt/vasp.6.6.1/bin/vasp_std
+    test -x /opt/vasp.6.6.1/bin/vasp_gam
+    test -x /opt/vasp.6.6.1/bin/vasp_ncl
+    test -x /opt/nvidia/hpc_sdk/Linux_x86_64/26.3/comm_libs/openmpi/openmpi-4.1.8/bin/mpif90
+    test -s /opt/vasp-tpc/manifest.txt
+    test -s /opt/vasp-tpc/lib/libdftd4.a
+    test -s /opt/vasp-tpc/lib/libmulticharge.a
+    test -s /opt/vasp-tpc/lib/libmctc-lib.a
+    test "$(find /opt/vasp.6.6.1 -mindepth 1 -maxdepth 1 ! -name bin | wc -l)" -eq 0
+
+%runscript
+    exec "$@"

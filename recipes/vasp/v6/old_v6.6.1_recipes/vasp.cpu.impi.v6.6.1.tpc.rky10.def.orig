@@ -1,0 +1,400 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+    Author fchen14@lsu.edu
+    Description VASP 6.6.1 CPU build with HDF5 and third-party-code support
+    ThirdPartyCodes Wannier90-3.1.0 DFT-D4-4.2.0 VTST VASPsol Libxc-7.0.0 libbeef
+
+%files
+    src/v6.6/vasp.6.6.1.tgz                  /opt/
+
+%post
+    set -eu
+
+    # VASP automatic license-validation settings. If a cluster-specific
+    # suffix is required, append it to HPC_LICENSE, e.g. WA25-0004@cluster01.
+    HPC_LICENSE='WA25-0004'
+    REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+
+    VASP_VERSION='6.6.1'
+    VASP_ROOT="/opt/vasp.${VASP_VERSION}"
+    TPC_ROOT='/opt/vasp-tpc'
+    BUILD_ROOT='/opt/packages'
+    BUILD_JOBS="$(nproc)"
+    if [ "$BUILD_JOBS" -gt 64 ]; then
+        BUILD_JOBS=64
+    fi
+
+    # Pinned third-party revisions.
+    WANNIER90_VERSION='3.1.0'
+    WANNIER90_COMMIT='1d6b187374a2d50b509e5e79e2cab01a79ff7ce1'
+    DFTD4_VERSION='4.2.0'
+    DFTD4_COMMIT='6e1f59c3f39d919a2dbef0601d2576727c8b30e8'
+    MCTC_VERSION='0.5.1'
+    MCTC_COMMIT='aa89d4bf5c0076fbf169b59eeb9e30185db0e5a5'
+    MULTICHARGE_VERSION='0.5.0'
+    MULTICHARGE_COMMIT='6a5d63f9e9e29dcf13cc47cc27f33bf9015681bf'
+    MSTORE_VERSION='0.3.0'
+    MSTORE_COMMIT='663245d739be0123da61c917e55116b0c3db4c74'
+    VTST_COMMIT='e34035138dded5e4436832eb2b7801247ca4c60d'
+    VASPSOL_COMMIT='1521557fce359c5ae1456efaf87d62464ef5a03f'
+    LIBBEEF_COMMIT='535ea67327baa8368ec5c502392a212375b16187'
+    LIBXC_VERSION='7.0.0'
+
+    dnf install -y \
+        autoconf automake bzip2 cmake diffutils environment-modules \
+        gcc gcc-c++ git gzip hwloc libtool m4 make ninja-build openssl-devel \
+        patch perl-devel perl-ExtUtils-MakeMaker perl-ExtUtils-ParseXS \
+        pkgconf-pkg-config rsync tar wget which zlib-devel
+
+    mkdir -p "$BUILD_ROOT" "$TPC_ROOT/lib" "$TPC_ROOT/include"
+
+    # Fetch one exact Git commit without retaining the complete repository
+    # history. The commit check prevents a silently changed dependency.
+    clone_pinned_commit() {
+        pinned_repo_url="$1"
+        pinned_commit="$2"
+        pinned_destination="$3"
+        git init "$pinned_destination"
+        git -C "$pinned_destination" remote add origin "$pinned_repo_url"
+        git -C "$pinned_destination" fetch --depth 1 origin "$pinned_commit"
+        git -C "$pinned_destination" checkout --detach FETCH_HEAD
+        test "$(git -C "$pinned_destination" rev-parse HEAD)" = "$pinned_commit"
+    }
+
+    # Slurm supplies the PMI libraries used by Intel MPI inside the image.
+    cd /opt
+    wget -q https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+    echo '8c8f6a26a5d51e6c63773f2e02653eb724540ee8b360125c8d7732314ce737d6  slurm-22-05-8-1.tar.gz' | sha256sum -c -
+    tar -xzf slurm-22-05-8-1.tar.gz
+    cd slurm-slurm-22-05-8-1
+    ./configure --prefix=/usr --libdir=/usr/lib64
+    make -j "$BUILD_JOBS"
+    make install
+    make -C contribs -j "$BUILD_JOBS"
+    make -C contribs install
+
+    # Make the Intel compiler, Intel MPI, and MKL available for every
+    # Fortran dependency as well as VASP itself.
+    . /etc/profile.d/modules.sh
+    /opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
+    export MODULEPATH="/opt/intel/oneapi/modulefiles:${MODULEPATH:-}"
+    module load compiler mpi mkl
+
+    # HDF5 1.14.4.3
+    cd "$BUILD_ROOT"
+    wget -q https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.4.3/hdf5-1.14.4-3.tar.gz
+    echo '019ac451d9e1cf89c0482ba2a06f07a46166caf23f60fea5ef3c37724a318e03  hdf5-1.14.4-3.tar.gz' | sha256sum -c -
+    tar -xzf hdf5-1.14.4-3.tar.gz
+    cd hdf5-1.14.4-3
+    CC=icx CXX=icpx FC=ifx ./configure \
+        --prefix=/usr \
+        --with-zlib=/usr \
+        --enable-fortran
+    make -j "$BUILD_JOBS"
+    make install
+    export LD_LIBRARY_PATH="/usr/lib:/usr/lib64:${LD_LIBRARY_PATH:-}"
+
+    # Libxc 7.0.0. Static libraries avoid adding a runtime dependency and
+    # --disable-fhc is required by VASP for correct meta-GGA behavior.
+    cd "$BUILD_ROOT"
+    wget -q "https://gitlab.com/libxc/libxc/-/archive/${LIBXC_VERSION}/libxc-${LIBXC_VERSION}.tar.gz"
+    echo '8d4e343041c9cd869833822f57744872076ae709a613c118d70605539fb13a77  libxc-7.0.0.tar.gz' | sha256sum -c -
+    tar -xzf "libxc-${LIBXC_VERSION}.tar.gz"
+    cd "libxc-${LIBXC_VERSION}"
+    autoreconf -i
+    CC=icx FC=ifx ./configure \
+        --prefix="$TPC_ROOT" \
+        --disable-fhc \
+        --disable-shared \
+        --enable-static
+    make -j "$BUILD_JOBS"
+    make install
+
+    # libbeef
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/vossjo/libbeef.git \
+        "$LIBBEEF_COMMIT" \
+        "$BUILD_ROOT/libbeef"
+    cd libbeef
+    # libbeef's build system produces libbeef.a only.
+    CC=icx ./configure --prefix="$TPC_ROOT"
+    make -j "$BUILD_JOBS"
+    make install
+
+    # Wannier90 3.1.0. VASP requires the serial Wannier90 library, so COMMS
+    # and MPIF90 are deliberately removed even though VASP itself uses MPI.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/wannier-developers/wannier90.git \
+        "$WANNIER90_COMMIT" \
+        "$BUILD_ROOT/wannier90-${WANNIER90_VERSION}"
+    cd "wannier90-${WANNIER90_VERSION}"
+    cp config/make.inc.ifort make.inc
+    sed -i 's/^F90[[:space:]]*=.*/F90 = ifx/' make.inc
+    sed -i '/^COMMS[[:space:]]*=/d; /^MPIF90[[:space:]]*=/d' make.inc
+    sed -i 's/^FCOPTS[[:space:]]*=.*/FCOPTS = -O3 -fPIC/' make.inc
+    sed -i 's/^LDOPTS[[:space:]]*=.*/LDOPTS = -O3/' make.inc
+    sed -i 's|^LIBS[[:space:]]*=.*|LIBS = -qmkl=sequential|' make.inc
+    make -j "$BUILD_JOBS" lib
+    install -D -m 0644 libwannier.a "$TPC_ROOT/lib/libwannier.a"
+
+    # DFT-D4 4.2.0 and its complete static Fortran dependency chain. Every
+    # library uses ifx, matching the VASP compiler. WITH_API_V2 remains on as
+    # a compatibility layer; VASP 6.6.1 uses the current API via -DDFTD4.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/grimme-lab/mctc-lib.git \
+        "$MCTC_COMMIT" \
+        "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}"
+    cmake -S "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}" \
+        -B "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_Fortran_COMPILER=ifx \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_JSON=OFF \
+        -DWITH_OpenMP=OFF
+    cmake --build "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build" -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/mctc-lib-${MCTC_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/grimme-lab/mstore.git \
+        "$MSTORE_COMMIT" \
+        "$BUILD_ROOT/mstore-${MSTORE_VERSION}"
+    cmake -S "$BUILD_ROOT/mstore-${MSTORE_VERSION}" \
+        -B "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_Fortran_COMPILER=ifx \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBUILD_SHARED_LIBS=OFF \
+        -Dmstore-dependency-method=cmake
+    cmake --build "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build" -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/mstore-${MSTORE_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/grimme-lab/multicharge.git \
+        "$MULTICHARGE_COMMIT" \
+        "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}"
+    cmake -S "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}" \
+        -B "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER=icx \
+        -DCMAKE_Fortran_COMPILER=ifx \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBLA_VENDOR=Intel10_64lp_seq \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_OpenMP=OFF \
+        -DWITH_TESTS=OFF \
+        -Dmulticharge-dependency-method=cmake
+    cmake --build "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build" -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/multicharge-${MULTICHARGE_VERSION}/build"
+
+    clone_pinned_commit \
+        https://github.com/dftd4/dftd4.git \
+        "$DFTD4_COMMIT" \
+        "$BUILD_ROOT/dftd4-${DFTD4_VERSION}"
+    cmake -S "$BUILD_ROOT/dftd4-${DFTD4_VERSION}" \
+        -B "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER=icx \
+        -DCMAKE_Fortran_COMPILER=ifx \
+        -DCMAKE_INSTALL_PREFIX="$TPC_ROOT" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$TPC_ROOT" \
+        -DBLA_VENDOR=Intel10_64lp_seq \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWITH_API_V2=ON \
+        -DWITH_OpenMP=OFF \
+        -Ddftd4-dependency-method=cmake
+    cmake --build "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build" -j "$BUILD_JOBS"
+    cmake --install "$BUILD_ROOT/dftd4-${DFTD4_VERSION}/build"
+
+    export PKG_CONFIG_PATH="$TPC_ROOT/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+    test "$(pkg-config --modversion dftd4)" = "$DFTD4_VERSION"
+
+    # Source-modifying plugins: VTST and the original VASPsol used by the
+    # NERSC vasp-tpc builds. The public VASPsol 6.6.0 CPU patch is reused for
+    # 6.6.1 and is applied first as a dry run so source drift fails clearly.
+    cd "$BUILD_ROOT"
+    clone_pinned_commit \
+        https://github.com/henkelmangroup/vtstcode.git \
+        "$VTST_COMMIT" \
+        "$BUILD_ROOT/vtstcode"
+    test -d "$BUILD_ROOT/vtstcode/vtstcode6.6.1"
+
+    clone_pinned_commit \
+        https://github.com/henniggroup/VASPsol.git \
+        "$VASPSOL_COMMIT" \
+        "$BUILD_ROOT/VASPsol"
+    wget -q -O VASPsol_VASP642-660.tar.gz \
+        https://github.com/user-attachments/files/28685988/VASPsol_VASP642-660.tar.gz
+    echo '579ea15bd81cd46fb7fda89ea4efbb27a0b24753abd0127e8ad478a001ebbcb4  VASPsol_VASP642-660.tar.gz' | sha256sum -c -
+    mkdir -p vaspsol-patches
+    tar --no-same-owner -xzf VASPsol_VASP642-660.tar.gz -C vaspsol-patches
+    test -s vaspsol-patches/VASPsol_VASP660.patch
+
+    # Unpack and configure VASP.
+    cd /opt
+    tar -xzf "vasp.${VASP_VERSION}.tgz"
+    cd "$VASP_ROOT"
+    cp arch/makefile.include.oneapi_omp makefile.include
+
+    # HDF5 and Intel MKL cluster support.
+    sed -i 's/FCL        += -qmkl/FCL        += -qmkl=cluster/' makefile.include
+    sed -i 's/#CPP_OPTIONS+= -DVASP_HDF5/CPP_OPTIONS+= -DVASP_HDF5/' makefile.include
+    sed -i 's|#HDF5_ROOT  ?= /path/to/your/hdf5/installation|HDF5_ROOT  ?= /usr|' makefile.include
+    sed -i 's|#LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|LLIBS      += -L$(HDF5_ROOT)/lib -lhdf5_fortran|' makefile.include
+    sed -i 's|#INCS       += -I$(HDF5_ROOT)/include|INCS       += -I$(HDF5_ROOT)/include|' makefile.include
+
+    # VTST for VASP 6.6.1.
+    cp -a "$BUILD_ROOT/vtstcode/vtstcode6.6.1/." src/
+    sed -i 's|^LIB= *lib parser|LIB= lib parser pyamff_fortran|' src/makefile
+    sed -i 's|^dependencies: *sources|dependencies: sources libs|' src/makefile
+    sed -i '/chain.o/i\
+    bfgs.o \\\
+    dynmat.o \\\
+    instanton.o \\\
+    lbfgs.o \\\
+    sd.o \\\
+    cg.o \\\
+    dimer.o \\\
+    bbm.o \\\
+    fire.o \\\
+    lanczos.o \\\
+    neb.o \\\
+    qm.o \\\
+    pyamff_fortran/*.o \\\
+    ml_pyamff.o \\\
+    opt.o \\' src/.objects
+    sed -i '4227c\     &                 TSIF,LATT_CUR%A,LATT_CUR%B,IO%IU6)' src/main.F
+    sed -i '1175c\      CALL chain_init( T_INFO, IO)' src/main.F
+
+    # VASPsol. The 6.6.0 patch has been reported as CPU/VTST compatible; the
+    # dry run deliberately stops this 6.6.1 build if either patched file moved.
+    cp "$BUILD_ROOT/VASPsol/src/solvation.F" src/solvation.F
+    cd src
+    patch --dry-run --batch --forward -p0 \
+        < "$BUILD_ROOT/vaspsol-patches/VASPsol_VASP660.patch"
+    patch --batch --forward -p0 \
+        < "$BUILD_ROOT/vaspsol-patches/VASPsol_VASP660.patch"
+    cd "$VASP_ROOT"
+
+    # Ensure VASPsol is linked before pot.o. This is already true in the
+    # unmodified 6.6.x object list, but make it explicit after all plugins.
+    sed -i '/^[[:space:]]*solvation[.]o[[:space:]]/d' src/.objects
+    sed -i '/^[[:space:]]*pot[.]o[[:space:]]/i\    solvation.o \\' src/.objects
+    vasp_tpc_solvation_line="$(grep -n -m1 '^[[:space:]]*solvation[.]o' src/.objects | cut -d: -f1)"
+    vasp_tpc_pot_line="$(grep -n -m1 '^[[:space:]]*pot[.]o' src/.objects | cut -d: -f1)"
+    test -n "$vasp_tpc_solvation_line"
+    test -n "$vasp_tpc_pot_line"
+    test "$vasp_tpc_solvation_line" -lt "$vasp_tpc_pot_line"
+
+    # Third-party library interfaces. DFT-D4's static dependency chain is
+    # grouped to make the link independent of archive ordering.
+    printf '\n# NERSC-style third-party-code (TPC) support\n' >> makefile.include
+    printf 'CPP_OPTIONS += -DVASP2WANNIER90 -DDFTD4 -DUSELIBXC -Dlibbeef -Dsol_compat\n' >> makefile.include
+    printf 'TPC_ROOT     ?= /opt/vasp-tpc\n' >> makefile.include
+    printf 'WANNIER90_ROOT ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'LLIBS        += -L$(WANNIER90_ROOT)/lib -lwannier\n' >> makefile.include
+    printf 'DFTD4_ROOT   ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'INCS         += $(shell PKG_CONFIG_PATH=$(DFTD4_ROOT)/lib/pkgconfig pkg-config --cflags dftd4)\n' >> makefile.include
+    printf 'LLIBS        += -L$(DFTD4_ROOT)/lib -Wl,--start-group -ldftd4 -lmulticharge -lmstore -lmctc-lib -Wl,--end-group\n' >> makefile.include
+    printf 'LIBXC_ROOT   ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'INCS         += -I$(LIBXC_ROOT)/include\n' >> makefile.include
+    printf 'LLIBS        += -L$(LIBXC_ROOT)/lib -lxcf03 -lxc\n' >> makefile.include
+    printf 'LIBBEEF_ROOT ?= $(TPC_ROOT)\n' >> makefile.include
+    printf 'LLIBS        += -L$(LIBBEEF_ROOT)/lib -lbeef -lm\n' >> makefile.include
+
+    # Automatic license validation and OpenSSL signature verification.
+    printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+        "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+    printf 'LLIBS        += -lcrypto -lssl\n' >> makefile.include
+
+    # Fail before compilation if an interface flag, library, or license option
+    # was accidentally omitted.
+    for vasp_tpc_flag in \
+        -DVASP_HDF5 -DVASP2WANNIER90 -DDFTD4 -DUSELIBXC -Dlibbeef -Dsol_compat; do
+        grep -F -- "$vasp_tpc_flag" makefile.include
+    done
+    grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+    grep -F -- "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" makefile.include
+    grep -F -- '-lcrypto -lssl' makefile.include
+
+    for vasp_tpc_library in \
+        libwannier.a libdftd4.a libmulticharge.a libmstore.a libmctc-lib.a \
+        libxcf03.a libxc.a libbeef.a; do
+        test -s "$TPC_ROOT/lib/$vasp_tpc_library"
+    done
+
+    # Build all three VASP executables.
+    make veryclean
+    make DEPS=1 -j "$BUILD_JOBS"
+
+    test -x "$VASP_ROOT/bin/vasp_std"
+    test -x "$VASP_ROOT/bin/vasp_gam"
+    test -x "$VASP_ROOT/bin/vasp_ncl"
+    for vasp_tpc_binary in vasp_std vasp_gam vasp_ncl; do
+        if ldd "$VASP_ROOT/bin/$vasp_tpc_binary" | grep -q 'not found'; then
+            echo "Unresolved runtime library in $vasp_tpc_binary" >&2
+            exit 1
+        fi
+    done
+
+    # Preserve an auditable dependency manifest outside the VASP source tree.
+    printf '%s\n' \
+        "VASP ${VASP_VERSION}" \
+        'HDF5 1.14.4.3' \
+        "Wannier90 ${WANNIER90_VERSION} ${WANNIER90_COMMIT}" \
+        "DFT-D4 ${DFTD4_VERSION} ${DFTD4_COMMIT}" \
+        "mctc-lib ${MCTC_VERSION} ${MCTC_COMMIT}" \
+        "multicharge ${MULTICHARGE_VERSION} ${MULTICHARGE_COMMIT}" \
+        "mstore ${MSTORE_VERSION} ${MSTORE_COMMIT}" \
+        "VTST ${VTST_COMMIT}" \
+        "Libxc ${LIBXC_VERSION}" \
+        "libbeef ${LIBBEEF_COMMIT}" \
+        "VASPsol ${VASPSOL_COMMIT} with VASPsol_VASP660.patch" \
+        > "$TPC_ROOT/manifest.txt"
+
+    # Keep only the compiled VASP binaries under /opt/vasp.6.6.1. Static TPC
+    # libraries remain under /opt/vasp-tpc because they are part of the image.
+    find "$VASP_ROOT" \
+        -mindepth 1 -maxdepth 1 \
+        ! -name bin \
+        -exec rm -rf -- {} +
+
+    rm -rf "$BUILD_ROOT"
+    rm -rf /opt/slurm-slurm-22-05-8-1 /opt/slurm-22-05-8-1.tar.gz
+    dnf clean all
+
+%environment
+    export LC_ALL=C
+    source /etc/profile.d/modules.sh
+    export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+    module load compiler mpi mkl
+    export VASP_TPC_ROOT=/opt/vasp-tpc
+    export OMP_NUM_THREADS=1
+    export PATH=/opt/vasp.6.6.1/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/lib:/usr/lib64:$LD_LIBRARY_PATH
+
+%test
+    test -x /opt/vasp.6.6.1/bin/vasp_std
+    test -x /opt/vasp.6.6.1/bin/vasp_gam
+    test -x /opt/vasp.6.6.1/bin/vasp_ncl
+    test -s /opt/vasp-tpc/manifest.txt
+    test "$(find /opt/vasp.6.6.1 -mindepth 1 -maxdepth 1 ! -name bin | wc -l)" -eq 0
+
+%runscript
+    exec "$@"
+
