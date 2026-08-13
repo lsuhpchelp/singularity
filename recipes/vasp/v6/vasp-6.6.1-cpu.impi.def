@@ -80,6 +80,7 @@ make DEPS=1 -j64
 
 # Keep only the compiled VASP binaries under /opt/vasp.6.6.1. Static TPC
 # libraries remain under /opt/vasp-tpc because they are part of the image.
+VASP_ROOT="/opt/vasp.6.6.1"
 find "$VASP_ROOT" \
     -mindepth 1 -maxdepth 1 \
     ! -name bin \
