@@ -394,6 +394,7 @@ From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
         -mindepth 1 -maxdepth 1 \
         ! -name bin \
         -exec rm -rf -- {} +
+    rm -rf /opt/vasp.6.6.1.tgz
 
     rm -rf "$BUILD_ROOT"
     rm -rf /opt/slurm-slurm-22-05-8-1 /opt/slurm-22-05-8-1.tar.gz

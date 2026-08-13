@@ -78,6 +78,18 @@ grep -F -- '-lcrypto -lssl' makefile.include
 make veryclean
 make DEPS=1 -j64
 
+# Keep only the compiled VASP binaries under /opt/vasp.6.6.1. Static TPC
+# libraries remain under /opt/vasp-tpc because they are part of the image.
+find "$VASP_ROOT" \
+    -mindepth 1 -maxdepth 1 \
+    ! -name bin \
+    -exec rm -rf -- {} +
+rm -rf /opt/vasp.6.6.1.tgz
+
+rm -rf "$BUILD_ROOT"
+rm -rf /opt/slurm-slurm-22-05-8-1 /opt/slurm-22-05-8-1.tar.gz
+dnf clean all
+
 %environment
 export LC_ALL=C
 source /etc/profile.d/modules.sh
