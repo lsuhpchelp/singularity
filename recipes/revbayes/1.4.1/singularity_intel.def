@@ -1,0 +1,39 @@
+BootStrap: docker
+From: intel/oneapi-toolkit:2026.1.0-devel-ubuntu24.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         1.4.1
+Description     Bayesian Phylogenetic Inference Using Graphical Models and an Interactive Model-Specification Language.
+
+
+################################################################################
+%post
+################################################################################
+
+# Dependencies
+apt-get update && apt-get install -y build-essential libboost-all-dev libpmi2-0-dev && apt clean
+
+# Download RevBayes
+cd /opt
+wget https://github.com/revbayes/revbayes/archive/refs/tags/v1.4.1.tar.gz && tar -xf v1.4.1.tar.gz
+
+# Compile RevBayes (MPI version)
+cd /opt/revbayes-1.4.1/projects/cmake
+./build.sh -mpi true -j `nproc` -DCMAKE_INSTALL_PREFIX=${SCIF_APPROOT} -DCMAKE_BUILD_TYPE=Release
+cd /opt/revbayes-1.4.1/projects/cmake/build-mpi && make install
+
+# Compile RevBayes
+cd /opt/revbayes-1.4.1/projects/cmake
+./build.sh -j `nproc` -DCMAKE_INSTALL_PREFIX=${SCIF_APPROOT} -DCMAKE_BUILD_TYPE=Release
+cd /opt/revbayes-1.4.1/projects/cmake/build && make install
+
+
+################################################################################
+%environment
+################################################################################
+export I_MPI_PMI_LIBRARY=/usr/lib/x86_64-linux-gnu/libpmi2.so
