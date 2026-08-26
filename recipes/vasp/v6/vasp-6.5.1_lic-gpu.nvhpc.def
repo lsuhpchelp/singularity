@@ -1,0 +1,175 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+Author fchen14@lsu.edu
+
+%files
+
+src/vasp.6.5.1_lic.tgz                  /opt/
+
+%post
+
+# VASP automatic license-validation settings.
+# Use the license number without a cluster suffix so the same image can be
+# deployed on both LSU and LONI systems.
+# VASP automatic license-validation settings.
+# If a cluster-specific suffix is required, append it to HPC_LICENSE, for
+# example: WA25-0004@cluster01
+CLUSTER_SUFFIX='{{ CLUSTER_SUFFIX }}'
+
+case "$CLUSTER_SUFFIX" in
+    lonihpc|lsuhpc)
+        ;;
+    *)
+        echo "ERROR: unsupported CLUSTER_SUFFIX: $CLUSTER_SUFFIX" >&2
+        exit 1
+        ;;
+esac
+
+HPC_LICENSE="WA25-0004@${CLUSTER_SUFFIX}"
+REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+
+NVHPC_VERSION='26.3'
+OPENMPI_VERSION='4.1.8'
+NVHPC_ROOT="/opt/nvidia/hpc_sdk/Linux_x86_64/${NVHPC_VERSION}"
+CUDA_ROOT="${NVHPC_ROOT}/cuda"
+OPENMPI_ROOT="${NVHPC_ROOT}/comm_libs/openmpi/openmpi-${OPENMPI_VERSION}"
+
+# The Intel container may contain enabled vendor repositories that are not
+# needed during this build. Disable them before the first dnf transaction.
+for repo_file in \
+    /etc/yum.repos.d/*intel*.repo \
+    /etc/yum.repos.d/*oneAPI*.repo \
+    /etc/yum.repos.d/*oneapi*.repo; do
+    if [ -f "$repo_file" ]; then
+        sed -i \
+            's/^[[:space:]]*enabled[[:space:]]*=.*/enabled=0/' \
+            "$repo_file"
+    fi
+done
+
+dnf install -y \
+    dnf-plugins-core \
+    environment-modules \
+    hwloc \
+    openssl-devel \
+    perl-devel \
+    perl-ExtUtils-MakeMaker \
+    rsync \
+    wget
+
+# Compile Slurm to provide PMI/PMI2 headers and libraries without depending on
+# EPEL packages that are not available consistently on Rocky Linux 10.
+cd /opt
+wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+tar zxf slurm-22-05-8-1.tar.gz
+cd slurm-slurm-22-05-8-1
+./configure --prefix=/usr --libdir=/usr/lib64
+make -j20
+make install
+cd contribs
+make -j20
+make install
+
+# Install NVIDIA HPC SDK 26.3 with its CUDA 13.1 toolchain.
+source /etc/profile.d/modules.sh
+dnf config-manager --add-repo \
+    https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+dnf install -y nvhpc-26-3-cuda-multi
+module load "/opt/nvidia/hpc_sdk/modulefiles/nvhpc/${NVHPC_VERSION}"
+
+# Build an NVHPC OpenMPI with Slurm PMI and CUDA support.
+cd /opt
+wget \
+    "https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.bz2"
+tar jxf "openmpi-${OPENMPI_VERSION}.tar.bz2"
+cd "openmpi-${OPENMPI_VERSION}"
+mkdir -p build
+cd build
+CC=nvc CXX=nvc++ FC=nvfortran \
+CFLAGS='-fPIC' CXXFLAGS='-fPIC' FCFLAGS='-Mstandard -fPIC' \
+    ../configure \
+        --prefix="$OPENMPI_ROOT" \
+        --with-hwloc=internal \
+        --enable-mpirun-prefix-by-default \
+        --with-pmi=/usr \
+        --with-slurm \
+        --without-verbs \
+        --with-cuda="$CUDA_ROOT"
+make -j"$(nproc)"
+make install
+
+export PATH="$OPENMPI_ROOT/bin:$PATH"
+export LD_LIBRARY_PATH="$OPENMPI_ROOT/lib:${LD_LIBRARY_PATH:-}"
+export CPATH="$OPENMPI_ROOT/include:${CPATH:-}"
+
+# Load Intel oneAPI MKL for the VASP link step.
+/opt/intel/oneapi/modulefiles-setup.sh \
+    --output-dir=/opt/intel/oneapi/modulefiles
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler
+module load mkl
+
+# Build VASP 6.5.1 with GPU offload and automatic license validation.
+cd /opt
+tar zxf vasp.6.5.1_lic.tgz
+mv vasp.6.5.1_lic vasp.6.5.1
+cd vasp.6.5.1
+cp arch/makefile.include.nvhpc_ompi_mkl_omp_acc ./makefile.include
+
+# QB4 GPU architectures and the CUDA version bundled with NVHPC 26.3.
+sed -i \
+    '/^GPU[[:space:]]*?=/c\GPU        ?= -gpu=cc80,cc89,cuda13.1' \
+    makefile.include
+
+# Enable VASP's built-in license validation and OpenSSL signature checking.
+printf '\nCPP_OPTIONS += -DLICENSE="\\"%s\\"" -DREVOKED_KEYS_PATH=\\"%s\\"\n' \
+    "$HPC_LICENSE" "$REVOKED_KEYS_PATH" >> makefile.include
+printf 'LLIBS      += -lcrypto -lssl\n' >> makefile.include
+
+# Fail early if the required GPU and license-validation settings are missing.
+grep -F -- '-gpu=cc80,cc89,cuda13.1' makefile.include
+grep -F -- "-DLICENSE=\"\\\"${HPC_LICENSE}\\\"\"" makefile.include
+grep -F -- \
+    "-DREVOKED_KEYS_PATH=\\\"${REVOKED_KEYS_PATH}\\\"" \
+    makefile.include
+grep -F -- '-lcrypto -lssl' makefile.include
+
+make veryclean
+make DEPS=1 -j16
+
+# Confirm that the complete VASP executable set was produced.
+for executable in vasp_std vasp_gam vasp_ncl; do
+    test -x "/opt/vasp.6.5.1/bin/$executable"
+done
+
+# Keep only the compiled VASP binaries under /opt/vasp.6.5.1. Static TPC
+# libraries remain under /opt/vasp-tpc because they are part of the image.
+VASP_ROOT="/opt/vasp.6.5.1"
+find "$VASP_ROOT" \
+    -mindepth 1 -maxdepth 1 \
+    ! -name bin \
+    -exec rm -rf -- {} +
+rm -rf /opt/vasp.6.5.1_lic.tgz
+
+%environment
+export LC_ALL=C
+source /etc/profile.d/modules.sh
+
+export NVHPC_VERSION=26.3
+export OPENMPI_VERSION=4.1.8
+export NVHPC_ROOT=/opt/nvidia/hpc_sdk/Linux_x86_64/$NVHPC_VERSION
+export OPENMPI_ROOT=$NVHPC_ROOT/comm_libs/openmpi/openmpi-$OPENMPI_VERSION
+
+module load /opt/nvidia/hpc_sdk/modulefiles/nvhpc/$NVHPC_VERSION
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler
+module load mkl
+
+export PATH=$OPENMPI_ROOT/bin:/opt/vasp.6.5.1/bin:$PATH
+export LD_LIBRARY_PATH=$OPENMPI_ROOT/lib:${LD_LIBRARY_PATH:-}
+export CPATH=$OPENMPI_ROOT/include:${CPATH:-}
+
+%runscript
+exec "$@"
