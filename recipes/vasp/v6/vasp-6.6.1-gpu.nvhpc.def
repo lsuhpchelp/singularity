@@ -13,8 +13,20 @@ src/v6.6/vasp.6.6.1.tgz                  /opt/
 # VASP automatic license-validation settings.
 # If a cluster-specific suffix is required, append it to HPC_LICENSE, for
 # example: WA25-0004@cluster01
-HPC_LICENSE='WA25-0004'
+CLUSTER_SUFFIX='{{ CLUSTER_SUFFIX }}'
+
+case "$CLUSTER_SUFFIX" in
+    lonihpc|lsuhpc)
+        ;;
+    *)
+        echo "ERROR: unsupported CLUSTER_SUFFIX: $CLUSTER_SUFFIX" >&2
+        exit 1
+        ;;
+esac
+
+HPC_LICENSE="WA25-0004@${CLUSTER_SUFFIX}"
 REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
+
 
 #for f in /etc/yum.repos.d/*intel*repo /etc/yum.repos.d/*oneAPI*repo /etc/yum.repos.d/*oneapi*repo; do
 #    [ -f "$f" ] && sed -i 's/enabled=1/enabled=0/g' "$f"

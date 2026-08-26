@@ -14,7 +14,18 @@ From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
 
     # VASP automatic license-validation settings. If a cluster-specific
     # suffix is required, append it to HPC_LICENSE, e.g. WA25-0004@cluster01.
-    HPC_LICENSE='WA25-0004'
+    CLUSTER_SUFFIX='{{ CLUSTER_SUFFIX }}'
+
+    case "$CLUSTER_SUFFIX" in
+        lonihpc|lsuhpc)
+            ;;
+        *)
+            echo "ERROR: unsupported CLUSTER_SUFFIX: $CLUSTER_SUFFIX" >&2
+            exit 1
+            ;;
+    esac
+    
+    HPC_LICENSE="WA25-0004@${CLUSTER_SUFFIX}"
     REVOKED_KEYS_PATH='/project/containers/software/vasp/license/revoked_keys'
 
     VASP_VERSION='6.6.1'
