@@ -1,0 +1,23 @@
+BootStrap: docker
+From: ubuntu:22.04
+
+
+################################################################################
+%labels
+################################################################################
+
+Maintainer      Jason Li
+Version         9.8.53
+Description     PFC (Particle Flow Code) is a general purpose, distinct-element modeling (DEM) framework that is available as two- and three-dimensional programs (PFC2D and PFC3D, respectively).
+
+
+################################################################################
+%post
+################################################################################
+
+apt update && apt install -y wget
+
+cd /opt
+wget https://itasca-software.s3.us-east-1.amazonaws.com/itasca-software/9.subscription/itascasoftware.9.8.53.deb
+DEBIAN_FRONTEND=noninteractive apt -y install -f ./itascasoftware.9.8.53.deb
+rm itascasoftware.9.8.53.deb
