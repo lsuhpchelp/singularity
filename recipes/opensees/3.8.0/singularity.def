@@ -1,0 +1,130 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.2.0-devel-ubuntu24.04
+
+%labels
+    Author OpenSees Singularity Recipe
+    BaseImage intel/oneapi-toolkit:2026.2.0-devel-ubuntu24.04
+    MPI Intel MPI with Slurm PMI2 support
+
+%environment
+    export PATH="/usr/local/bin:${PATH}"
+    export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
+    # Point Intel MPI to Slurm's PMI2 library for srun --mpi=pmi2
+    # (Unset I_MPI_PMI_LIBRARY if launching with mpirun/Hydra instead of srun)
+    export I_MPI_PMI_LIBRARY="${I_MPI_PMI_LIBRARY:-/usr/lib/x86_64-linux-gnu/libpmi2.so}"
+
+%post
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+
+    # 1. Install system dependencies, GCC/GFortran toolchain, Python, and Slurm PMI2 libraries
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        gfortran \
+        cmake \
+        git \
+        wget \
+        ca-certificates \
+        pkg-config \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        liblapack-dev \
+        libssl-dev \
+        libpmi2-0t64 \
+        libpmi2-0-dev
+    rm -rf /var/lib/apt/lists/*
+
+    # Ensure unversioned libpmi2.so symlink exists for Intel MPI I_MPI_PMI_LIBRARY
+    if [ ! -e /usr/lib/x86_64-linux-gnu/libpmi2.so ] && [ -e /usr/lib/x86_64-linux-gnu/libpmi2.so.0 ]; then
+        ln -sf /usr/lib/x86_64-linux-gnu/libpmi2.so.0 /usr/lib/x86_64-linux-gnu/libpmi2.so
+    fi
+
+    # 2. Run build in bash so Intel oneAPI setvars.sh can be sourced properly
+    /bin/bash -eo pipefail << 'EOF'
+    set +u
+    source /opt/intel/oneapi/setvars.sh --force
+    set -u
+
+    export CC=gcc
+    export CXX=g++
+    export FC=gfortran
+    export CMAKE_POLICY_VERSION_MINIMUM=3.5
+
+    NPROC=$(nproc)
+
+    # Locate Intel MKL library directory (oneAPI 2024+ uses lib/, older uses lib/intel64/)
+    if [ -d "${MKLROOT}/lib/intel64" ]; then
+        MKL_LIB_DIR="${MKLROOT}/lib/intel64"
+    else
+        MKL_LIB_DIR="${MKLROOT}/lib"
+    fi
+
+    # 3. Build MUMPS against Intel MPI and Intel MKL
+    rm -rf /opt/mumps
+    git clone --depth 1 https://github.com/OpenSees/mumps.git /opt/mumps
+    cmake -B /opt/mumps/build -S /opt/mumps \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -Darith=d
+    cmake --build /opt/mumps/build --config Release --parallel "${NPROC}"
+
+    # 4. Clone the latest OpenSees repository, install Conan 2 in a dedicated venv, and install dependencies
+    rm -rf /opt/OpenSees
+    git clone --depth 1 https://github.com/OpenSees/OpenSees.git /opt/OpenSees
+
+    python3 -m venv /opt/conan_venv
+    /opt/conan_venv/bin/pip install --no-cache-dir --upgrade pip conan
+    /opt/conan_venv/bin/conan profile detect --force
+
+    cd /opt/OpenSees
+    rm -rf build
+    /opt/conan_venv/bin/conan install . \
+        --output-folder=build \
+        --build=missing \
+        -s build_type=Release
+
+    # 5. Configure and compile OpenSees (sequential, SP, MP, and OpenSeesPy)
+    cmake -B build -S . \
+        -DCMAKE_TOOLCHAIN_FILE="build/build/Release/generators/conan_toolchain.cmake" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DMUMPS_DIR="/opt/mumps/build" \
+        -DSCALAPACK_LIBRARIES="${MKL_LIB_DIR}/libmkl_scalapack_lp64.so;${MKL_LIB_DIR}/libmkl_blacs_intelmpi_lp64.so" \
+        -DLAPACK_LIBRARIES="-Wl,--start-group ${MKL_LIB_DIR}/libmkl_intel_lp64.so ${MKL_LIB_DIR}/libmkl_sequential.so ${MKL_LIB_DIR}/libmkl_core.so -Wl,--end-group -lpthread -lm -ldl"
+
+    cmake --build build --config Release --target OpenSees   --parallel "${NPROC}"
+    cmake --build build --config Release --target OpenSeesSP --parallel "${NPROC}"
+    cmake --build build --config Release --target OpenSeesMP --parallel "${NPROC}"
+    cmake --build build --config Release --target OpenSeesPy --parallel "${NPROC}"
+
+    cmake --install build --prefix /usr/local
+
+    # 6. Clean up build artifacts and temporary caches to reduce image size
+    rm -rf /opt/OpenSees/build /opt/mumps /opt/conan_venv /root/.conan2
+EOF
+
+%runscript
+    exec OpenSees "$@"
+
+%help
+    OpenSees container built with Intel oneAPI (Intel MPI + Intel MKL) on Ubuntu 24.04.
+
+    Available binaries in /usr/local/bin:
+      - OpenSees    (sequential)
+      - OpenSeesSP  (parallel, single-interpreter)
+      - OpenSeesMP  (parallel, multi-interpreter)
+      - opensees.so (OpenSeesPy shared library)
+
+    Running with Slurm + PMI2:
+      srun --mpi=pmi2 singularity exec /path/to/opensees.sif OpenSeesMP script.tcl
+
+    Running with Intel MPI Hydra (mpirun):
+      mpirun -n 4 singularity exec opensees.sif OpenSeesMP script.tcl
+      (If Hydra warns/conflicts with I_MPI_PMI_LIBRARY, unset it first:
+       APPTAINERENV_I_MPI_PMI_LIBRARY= singularity exec ...)
