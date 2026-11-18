@@ -1,0 +1,347 @@
+Bootstrap: docker
+From: intel/oneapi-toolkit:2026.0.1-devel-rockylinux10
+
+%labels
+Author fchen14@lsu.edu
+Software MagIC (https://magic-sph.github.io)
+Dependencies SHTns 3.7.5 (MKL backend), Intel oneAPI MPI/MKL
+
+%help
+MagIC (MPI + OpenMP hybrid, SHTns + MKL) built with Intel oneAPI ifx/icx,
+plus the MagIC python post-processing module (numpy/scipy/matplotlib/basemap).
+    MagIC source tree : /opt/magic   (samples in /opt/magic/samples)
+    executable        : /opt/magic/bin/magic.exe
+    SHTns             : /opt/shtns-3.7.5
+    Python post-proc  : /opt/magic-python  ("python3", "ipython", "import magic")
+    post-proc example : /opt/magic/examples/magic_postproc_example.py
+
+Example: dynamo benchmark + post-processing (inside a job / salloc)
+    SIF=/path/to/magic-shtns-cpu.sif
+    mkdir -p /work/$USER/magic_bench && cd /work/$USER/magic_bench
+    singularity exec $SIF cp /opt/magic/samples/dynamo_benchmark/input.nml .
+    # SHTns AVX-512 kernels need >= 32 latitudes: l_max=16 -> nalias=15
+    sed -i 's/nalias *=20/nalias      =15/' input.nml
+    # longer run (t=3) with snapshots and spectra for the plots
+    sed -i -e 's/n_time_steps=1000/n_time_steps=30000/' \
+           -e 's/n_log_step *=1,/n_log_step  =20,/' \
+           -e 's/n_graphs *=1,/n_graphs    =4,\n n_specs     =4,/' input.nml
+    export OMP_NUM_THREADS=1
+    srun -n 4 singularity exec -B /work,/project $SIF magic.exe input.nml
+    # post-processing -> ./figs/*.png
+    singularity exec -B /work,/project $SIF \
+        python3 /opt/magic/examples/magic_postproc_example.py
+
+Interactive post-processing (OnDemand desktop or ssh -X):
+    singularity exec -B /work,/project $SIF ipython
+    >>> from magic import *
+    >>> ts = MagicTs(field='e_kin', all=True)
+    >>> s = Surf(); s.surf(field='Br', proj='moll', r=0.9)
+
+%post
+
+# ---------------------------------------------------------------------------
+# versions / build options
+# ---------------------------------------------------------------------------
+SHTNS_VER=3.7.5
+SHTNS_SHA256=94f608f3a01df892b67cf9b209b110df6b067f5fe68e3319719ab95ccc6c2a03
+SHTNS_PREFIX=/opt/shtns-${SHTNS_VER}
+MAGIC_ROOT=/opt/magic
+MAGIC_BRANCH=master
+# Fortran optimisation flag for MagIC (upstream default is -xHost).
+# -xHost targets the CPU of the build machine; SuperMike III is Ice Lake,
+# so use e.g. -xCORE-AVX512 if the image is built on a different CPU.
+OPTFLAG="-xHost"
+NPROC=16
+
+dnf install -y perl-ExtUtils-MakeMaker
+dnf install -y wget hwloc git cmake make
+dnf install -y environment-modules
+dnf install -y rsync
+dnf install -y openssl-devel
+
+# compile and install Slurm (for srun/PMI support with Intel MPI)
+cd /opt
+wget https://github.com/SchedMD/slurm/archive/refs/tags/slurm-22-05-8-1.tar.gz
+tar zxf slurm-22-05-8-1.tar.gz
+cd slurm-slurm-22-05-8-1
+./configure --prefix=/usr --libdir=/usr/lib64 && make -j${NPROC} && make install
+cd contribs && make -j${NPROC} && make install
+cd /opt && rm -rf slurm-slurm-22-05-8-1 slurm-22-05-8-1.tar.gz
+
+# need to source the line or module command wont be available
+source /etc/profile.d/modules.sh
+/opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/oneapi/modulefiles
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module load compiler mpi mkl
+
+# ---------------------------------------------------------------------------
+# SHTns (MKL as FFT backend), serial + OpenMP libraries, installed to /opt
+# (same steps as magic/bin/install-shtns.sh, but with prefix in /opt)
+# ---------------------------------------------------------------------------
+#
+# NOTE: the gricad-gitlab archive URL is behind an Anubis bot-check page, so
+# wget only gets an HTML challenge. Use the source tarball the SHTns author
+# publishes on PyPI instead (full C sources + configure, same as upstream).
+#
+# Build in a separate directory: the tarball unpacks to shtns-${SHTNS_VER},
+# which would otherwise be the same path as the install prefix
+# /opt/shtns-${SHTNS_VER} (and get deleted by the cleanup below).
+SHTNS_BUILD=/tmp/shtns-build
+mkdir -p ${SHTNS_BUILD} && cd ${SHTNS_BUILD}
+wget https://files.pythonhosted.org/packages/35/60/241291c0a737d269efd0ae02a488172721f1ad4b226729613cf8d12d3a4f/shtns-${SHTNS_VER}.tar.gz
+echo "${SHTNS_SHA256}  shtns-${SHTNS_VER}.tar.gz" | sha256sum -c -
+tar zxf shtns-${SHTNS_VER}.tar.gz
+cd shtns-${SHTNS_VER}
+
+# CC is used for the init/OpenMP code; the SIMD kernels are compiled by
+# SHTns' "kernel compiler", which defaults to gcc on purpose (upstream
+# recommendation, --enable-kernel-compiler=gcc). Kernels use -march=native,
+# so build on a node with the same CPU as the compute nodes.
+shtns_opts="--prefix=${SHTNS_PREFIX} --enable-mkl"
+
+# The PyPI sdist does not ship shtns_cuda.h / shtns_cuda.f03, so the
+# Makefile's "make install" fails on them. Install the CPU files by hand.
+install_shtns() {
+    mkdir -p ${SHTNS_PREFIX}/lib ${SHTNS_PREFIX}/include
+    cp "$1" ${SHTNS_PREFIX}/lib/
+    cp shtns.h shtns.f shtns.f03 ${SHTNS_PREFIX}/include/
+}
+
+# without OpenMP -> libshtns.a
+CC=icx ./configure ${shtns_opts}
+make -j${NPROC}
+install_shtns libshtns.a
+
+# with OpenMP -> libshtns_omp.a
+make clean
+CC=icx ./configure --enable-openmp ${shtns_opts}
+make -j${NPROC}
+install_shtns libshtns_omp.a
+
+ls -l ${SHTNS_PREFIX}/lib/libshtns.a ${SHTNS_PREFIX}/lib/libshtns_omp.a ${SHTNS_PREFIX}/include/shtns.f03
+cd /opt && rm -rf ${SHTNS_BUILD}
+
+# ---------------------------------------------------------------------------
+# MagIC
+# ---------------------------------------------------------------------------
+cd /opt
+git clone --depth 1 --branch ${MAGIC_BRANCH} https://github.com/magic-sph/magic.git ${MAGIC_ROOT}
+cd ${MAGIC_ROOT}
+
+# Use the configurable optimisation flag instead of the hard-coded -xHost
+sed -i "s|set(FFLAG_OPT     \"-xHost\")|set(FFLAG_OPT     \"${OPTFLAG}\")|" CMakeLists.txt
+grep -F "FFLAG_OPT     \"${OPTFLAG}\"" CMakeLists.txt
+
+# MagIC's CMake only looks for SHTns in $HOME/local (lib + include, also
+# used by its try_compile checks). Point a temporary HOME/local at /opt.
+BUILD_HOME=/tmp/magic-build-home
+mkdir -p ${BUILD_HOME}
+ln -sfn ${SHTNS_PREFIX} ${BUILD_HOME}/local
+
+# oneAPI MKL libs are in $MKLROOT/lib (no intel64 subdir), so pass them
+# explicitly. Use the Intel threading layer, consistent with the
+# Intel10_64lp LAPACK that CMake picks up and with ifx -qopenmp (libiomp5).
+mkdir -p build && cd build
+HOME=${BUILD_HOME} FC=mpiifx CC=mpiicx cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_MPI=yes \
+    -DUSE_OMP=yes \
+    -DUSE_SHTNS=yes \
+    -DUSE_FFTLIB=MKL \
+    -DUSE_LAPACKLIB=MKL \
+    -DPRECISION=dble \
+    -DOUT_PREC=sngl \
+    -DMKLCORE=${MKLROOT}/lib/libmkl_core.so \
+    -DMKLSEQ=${MKLROOT}/lib/libmkl_intel_thread.so \
+    -DMKL64=${MKLROOT}/lib/libmkl_intel_lp64.so \
+    2>&1 | tee cmake.log
+
+# fail the build early if SHTns / MKL were not picked up
+grep -F "SHTNS: ${BUILD_HOME}/local/lib/libshtns_omp.a" cmake.log
+grep -F "Use 'MKL' for the FFTs" cmake.log
+grep -F "Use 'MKL' for the LU factorisations" cmake.log
+
+HOME=${BUILD_HOME} make -j${NPROC}
+
+# install executable, keep samples/python/sourceme for users
+mkdir -p ${MAGIC_ROOT}/bin
+cp magic.exe ${MAGIC_ROOT}/bin/
+cd ${MAGIC_ROOT}
+rm -rf build .git ${BUILD_HOME}
+ldd ${MAGIC_ROOT}/bin/magic.exe
+
+# ---------------------------------------------------------------------------
+# Python post-processing (https://magic-sph.github.io/postProc.html)
+#   - Python venv in /opt/magic-python: numpy, scipy, matplotlib, meson, ...
+#   - The f2py Fortran helpers (greader_*, lmrreader_single, legendre,
+#     vtklib, cylavg) are PRE-BUILT here, because /opt is read-only inside
+#     the .sif and "import magic" would otherwise try to compile them into
+#     $MAGIC_HOME/python/magic at run time.
+# ---------------------------------------------------------------------------
+MAGIC_PY=/opt/magic-python
+dnf install -y python3 python3-devel python3-pip python3-tkinter \
+               gcc gcc-gfortran pkgconf-pkg-config
+
+python3 -m venv ${MAGIC_PY}
+${MAGIC_PY}/bin/pip install --no-cache-dir --upgrade pip
+# hard deps from the docs (python>=3.3, matplotlib, scipy, meson) + numpy/f2py,
+# ninja (needed by f2py's meson backend), ipython (recommended) and basemap
+# (extra projections 'moll'/'ortho' for Surf/radialContour; Hammer otherwise).
+# Install everything in ONE pip call: basemap 2.0 caps numpy (<2.4) and
+# matplotlib (<3.11), and the f2py libs below must be built against the
+# numpy version that is finally installed.
+${MAGIC_PY}/bin/pip install --no-cache-dir numpy scipy matplotlib meson ninja ipython basemap
+${MAGIC_PY}/bin/python -c "import numpy, scipy, matplotlib, mpl_toolkits.basemap as bm; \
+print('numpy', numpy.__version__, 'scipy', scipy.__version__, \
+      'matplotlib', matplotlib.__version__, 'basemap', bm.__version__)"
+
+# Upstream bug: radialContour(proj='ortho') draws with imshow and then calls
+# set_edgecolor() on the AxesImage -> AttributeError. Skip that step for ortho.
+sed -i "/^def radialContour/,/^def /s/^    if not pcolor:\$/    if not pcolor and proj != 'ortho':/" \
+    ${MAGIC_ROOT}/python/magic/plotlib.py
+test $(grep -c "if not pcolor and proj != 'ortho':" ${MAGIC_ROOT}/python/magic/plotlib.py) -eq 1
+
+# magic.cfg (normally created by sourceme.sh/autoConfigPython.sh).
+# buildLib must be True: magic/__init__.py only imports potExtra, graph2vtk,
+# spectralTransforms and potential when buildLib = True.
+cd ${MAGIC_ROOT}/python/magic
+cp magic.cfg.default magic.cfg
+sed -i -e 's/^backend.*/backend = TkAgg/' \
+       -e 's/^labTex.*/labTex = False/' \
+       -e 's/^buildLib.*/buildLib = True/' \
+       -e 's/^f2pyexec.*/f2pyexec = f2py/' \
+       -e 's/^fcompiler.*/fcompiler = gnu95/' magic.cfg
+cat magic.cfg
+
+# Build the Fortran libs once, the same way "import magic" does it
+# (Python >= 3.12 -> f2py with the meson backend, compilers from FC/CC).
+# Use gfortran/gcc so the Python side does not depend on the Intel runtime.
+cd /tmp
+env PATH=${MAGIC_PY}/bin:$PATH \
+    MAGIC_HOME=${MAGIC_ROOT} PYTHONPATH=${MAGIC_ROOT}/python \
+    FC=gfortran CC=gcc MPLBACKEND=Agg \
+    ${MAGIC_PY}/bin/python -c "import magic"
+
+# fail the build if any of the 6 libraries is missing or not importable
+ls -l ${MAGIC_ROOT}/python/magic/*.so
+test $(ls ${MAGIC_ROOT}/python/magic/*.so | wc -l) -eq 6
+MAGIC_HOME=${MAGIC_ROOT} PYTHONPATH=${MAGIC_ROOT}/python MPLBACKEND=Agg \
+    ${MAGIC_PY}/bin/python -c "
+import magic
+import magic.greader_single, magic.greader_double, magic.lmrreader_single
+import magic.legendre, magic.vtklib, magic.cylavg
+from magic import MagicPotential, MagicGraph, Surf, MagicTs
+# basemap projections through MagIC's own plotting routine
+import numpy as np, matplotlib.pyplot as plt
+from magic.plotlib import radialContour
+ph = np.linspace(0, 2*np.pi, 96); th = np.linspace(0, np.pi, 48)
+data = np.cos(3*ph)[:,None]*np.sin(th)[None,:]**3
+for p in ['hammer', 'moll', 'ortho']:
+    radialContour(data, proj=p); plt.close('all')
+print('MagIC python post-processing OK (hammer/moll/ortho)')"
+
+# Post-processing example script shipped in the image
+mkdir -p ${MAGIC_ROOT}/examples
+cat > ${MAGIC_ROOT}/examples/magic_postproc_example.py <<'PYEOF'
+#!/usr/bin/env python3
+"""
+MagIC post-processing example (run inside the MagIC directory of a finished run).
+
+    singularity exec -B /work,/project magic-shtns-cpu.sif \
+        python3 /opt/magic/examples/magic_postproc_example.py
+
+Produces PNG files in ./figs:
+  timeseries_energy.png   kinetic / magnetic energy vs time   (MagicTs)
+  surf_Br_moll.png        radial field Br at r=0.9 ro, Mollweide (Surf + basemap)
+  surf_Br_ortho.png       same, orthographic                     (Surf + basemap)
+  equat_temperature.png   temperature in the equatorial plane    (Surf.equat)
+  equat_vr.png            radial velocity in the equatorial plane
+  avg_Bphi.png            azimuthally averaged B_phi / vphi       (Surf.avg)
+  spectra_1..4.png        kinetic / magnetic spectra vs l and m   (MagicSpectrum)
+"""
+import os
+import matplotlib
+matplotlib.use('Agg')                 # no display needed on compute nodes
+import matplotlib.pyplot as plt
+from magic import MagicTs, Surf, MagicSpectrum
+
+os.makedirs('figs', exist_ok=True)
+
+
+def save_new_figs(prefix, before):
+    """Save every figure created since `before` (MagIC opens its own)."""
+    new = [n for n in plt.get_fignums() if n not in before]
+    names = []
+    for i, n in enumerate(new):
+        name = 'figs/{}{}.png'.format(prefix, '' if len(new) == 1 else '_{}'.format(i+1))
+        plt.figure(n).savefig(name, dpi=130, bbox_inches='tight')
+        names.append(name)
+    plt.close('all')
+    return names
+
+
+saved = []
+
+# 1) time series: kinetic and magnetic energy (all e_kin.* / e_mag_oc.* files)
+fig, axes = plt.subplots(2, 1, figsize=(7, 6), sharex=True)
+ek = MagicTs(field='e_kin', all=True, iplot=False)
+em = MagicTs(field='e_mag_oc', all=True, iplot=False)
+axes[0].plot(ek.time, ek.ekin_pol, label='poloidal')
+axes[0].plot(ek.time, ek.ekin_tor, label='toroidal')
+axes[0].set_ylabel('E_kin'); axes[0].legend()
+axes[1].plot(em.time, em.emagoc_pol, label='poloidal')
+axes[1].plot(em.time, em.emagoc_tor, label='toroidal')
+axes[1].set_ylabel('E_mag (outer core)'); axes[1].set_xlabel('time')
+axes[1].legend()
+fig.tight_layout()
+fig.savefig('figs/timeseries_energy.png', dpi=130)
+saved.append('figs/timeseries_energy.png')
+plt.close('all')
+
+# 2) snapshot from the latest graphic file G_#.<tag>
+s = Surf(ivar=None)                    # latest G file in this directory
+
+b = plt.get_fignums()
+s.surf(field='Br', r=0.9, proj='moll', cm='RdBu_r')
+saved += save_new_figs('surf_Br_moll', b)
+
+b = plt.get_fignums()
+s.surf(field='Br', r=0.9, proj='ortho', lat_0=30., cm='RdBu_r')
+saved += save_new_figs('surf_Br_ortho', b)
+
+b = plt.get_fignums()
+s.equat(field='temperature')
+saved += save_new_figs('equat_temperature', b)
+
+b = plt.get_fignums()
+s.equat(field='vr', cm='RdBu_r')
+saved += save_new_figs('equat_vr', b)
+
+b = plt.get_fignums()
+s.avg(field='Bphi')
+saved += save_new_figs('avg_Bphi', b)
+
+# 3) spectra from the latest kin_spec / mag_spec files
+b = plt.get_fignums()
+MagicSpectrum(field='e_kin', iplot=True)
+MagicSpectrum(field='e_mag', iplot=True)
+saved += save_new_figs('spectra', b)
+
+print('Saved:')
+for f in saved:
+    print('  ', f)
+PYEOF
+chmod 755 ${MAGIC_ROOT}/examples/magic_postproc_example.py
+${MAGIC_PY}/bin/python -m py_compile ${MAGIC_ROOT}/examples/magic_postproc_example.py
+
+%environment
+export LC_ALL=C
+source /etc/profile.d/modules.sh
+export MODULEPATH=/opt/intel/oneapi/modulefiles:$MODULEPATH
+module -s load compiler mpi mkl
+export MAGIC_HOME=/opt/magic
+export PATH=/opt/magic/bin:/opt/magic-python/bin:$PATH
+export PYTHONPATH=/opt/magic/python${PYTHONPATH:+:$PYTHONPATH}
+
+%runscript
+exec "$@"
